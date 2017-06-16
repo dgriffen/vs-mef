@@ -9,16 +9,14 @@
 namespace Microsoft.VisualStudio.Composition
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
-    using System.ComponentModel;
     using System.Globalization;
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
     using System.Security;
     using System.Threading;
-    using Microsoft.Internal;
+    using Microsoft.VisualStudio.Composition.Reflection;
 
     /// <summary>
     /// Constructs concrete types for metadata view interfaces.
@@ -84,18 +82,19 @@ namespace Microsoft.VisualStudio.Composition
         private static readonly AssemblyName ProxyAssemblyName = new AssemblyName(string.Format(CultureInfo.InvariantCulture, "MetadataViewProxies_{0}", Guid.NewGuid()));
 
         private static readonly Type[] CtorArgumentTypes = new Type[] { typeof(IReadOnlyDictionary<string, object>), typeof(IReadOnlyDictionary<string, object>) };
-        private static readonly MethodInfo MdvDictionaryTryGet = CtorArgumentTypes[0].GetMethod("TryGetValue");
-        private static readonly MethodInfo MdvDictionaryIndexer = CtorArgumentTypes[0].GetMethod("get_Item");
-        private static readonly MethodInfo ObjectGetType = typeof(object).GetMethod("GetType", Type.EmptyTypes);
-        private static readonly ConstructorInfo ObjectCtor = typeof(object).GetConstructor(Type.EmptyTypes);
+        private static readonly MethodInfo MdvDictionaryTryGet = CtorArgumentTypes[0].GetTypeInfo().GetMethod("TryGetValue");
+        private static readonly MethodInfo MdvDictionaryIndexer = CtorArgumentTypes[0].GetTypeInfo().GetMethod("get_Item");
+        private static readonly MethodInfo ObjectGetType = typeof(object).GetTypeInfo().GetMethod("GetType", Type.EmptyTypes);
+        private static readonly ConstructorInfo ObjectCtor = typeof(object).GetTypeInfo().GetConstructor(Type.EmptyTypes);
 
         private static ModuleBuilder transparentProxyModuleBuilder;
+        private static SkipClrVisibilityChecks skipClrVisibilityChecks;
 
         public delegate object MetadataViewFactory(IReadOnlyDictionary<string, object> metadata, IReadOnlyDictionary<string, object> defaultMetadata);
 
         private static AssemblyBuilder CreateProxyAssemblyBuilder(ConstructorInfo constructorInfo)
         {
-            return AppDomain.CurrentDomain.DefineDynamicAssembly(ProxyAssemblyName, AssemblyBuilderAccess.Run);
+            return AssemblyBuilder.DefineDynamicAssembly(ProxyAssemblyName, AssemblyBuilderAccess.Run);
         }
 
         private static ModuleBuilder GetProxyModuleBuilder()
@@ -104,8 +103,9 @@ namespace Microsoft.VisualStudio.Composition
             if (transparentProxyModuleBuilder == null)
             {
                 // make a new assemblybuilder and modulebuilder
-                var assemblyBuilder = CreateProxyAssemblyBuilder(typeof(SecurityTransparentAttribute).GetConstructor(Type.EmptyTypes));
+                var assemblyBuilder = CreateProxyAssemblyBuilder(typeof(SecurityTransparentAttribute).GetTypeInfo().GetConstructor(Type.EmptyTypes));
                 transparentProxyModuleBuilder = assemblyBuilder.DefineDynamicModule("MetadataViewProxiesModule");
+                skipClrVisibilityChecks = new SkipClrVisibilityChecks(assemblyBuilder, transparentProxyModuleBuilder);
             }
 
             return transparentProxyModuleBuilder;
@@ -114,7 +114,7 @@ namespace Microsoft.VisualStudio.Composition
         public static MetadataViewFactory GetMetadataViewFactory(Type viewType)
         {
             Assumes.NotNull(viewType);
-            Assumes.True(viewType.IsInterface);
+            Assumes.True(viewType.GetTypeInfo().IsInterface);
 
             MetadataViewFactory metadataViewFactory;
 
@@ -124,9 +124,9 @@ namespace Microsoft.VisualStudio.Composition
                 {
                     // We actually create the proxy type within the lock because we're
                     // tampering with the ModuleBuilder which isn't thread-safe.
-                    Type generatedProxyType = GenerateInterfaceViewProxyType(viewType);
-                    metadataViewFactory = (MetadataViewFactory)Delegate.CreateDelegate(
-                        typeof(MetadataViewFactory), generatedProxyType.GetMethod(MetadataViewGenerator.MetadataViewFactoryName, BindingFlags.Public | BindingFlags.Static));
+                    TypeInfo generatedProxyType = GenerateInterfaceViewProxyType(viewType);
+                    var methodInfo = generatedProxyType.GetMethod(MetadataViewGenerator.MetadataViewFactoryName, BindingFlags.Public | BindingFlags.Static);
+                    metadataViewFactory = (MetadataViewFactory)methodInfo.CreateDelegate(typeof(MetadataViewFactory));
                     MetadataViewFactories.Add(viewType, metadataViewFactory);
                 }
             }
@@ -134,14 +134,16 @@ namespace Microsoft.VisualStudio.Composition
             return metadataViewFactory;
         }
 
-        private static Type GenerateInterfaceViewProxyType(Type viewType)
+        private static TypeInfo GenerateInterfaceViewProxyType(Type viewType)
         {
             // View type is an interface let's cook an implementation
-            Type proxyType;
+            TypeInfo proxyType;
             TypeBuilder proxyTypeBuilder;
             Type[] interfaces = { viewType };
 
             var proxyModuleBuilder = GetProxyModuleBuilder();
+            skipClrVisibilityChecks.SkipVisibilityChecksFor(viewType.GetTypeInfo());
+
             proxyTypeBuilder = proxyModuleBuilder.DefineType(
                 string.Format(CultureInfo.InvariantCulture, "_proxy_{0}_{1}", viewType.FullName, Guid.NewGuid()),
                 TypeAttributes.Public,
@@ -239,7 +241,7 @@ namespace Microsoft.VisualStudio.Composition
 
                 getMethodIL.MarkLabel(returnLabel);
                 getMethodIL.Emit(OpCodes.Ldloc_0);
-                getMethodIL.Emit(propertyInfo.PropertyType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Isinst, propertyInfo.PropertyType);
+                getMethodIL.Emit(propertyInfo.PropertyType.GetTypeInfo().IsValueType ? OpCodes.Unbox_Any : OpCodes.Isinst, propertyInfo.PropertyType);
                 getMethodIL.Emit(OpCodes.Ret);
 
                 proxyPropertyBuilder.SetGetMethod(getMethodBuilder);
@@ -258,14 +260,14 @@ namespace Microsoft.VisualStudio.Composition
             factoryIL.Emit(OpCodes.Ret);
 
             // Finished implementing the type
-            proxyType = proxyTypeBuilder.CreateType();
+            proxyType = proxyTypeBuilder.CreateTypeInfo();
 
             return proxyType;
         }
 
         private static IEnumerable<PropertyInfo> GetAllProperties(this Type type)
         {
-            return type.GetInterfaces().Concat(new Type[] { type }).SelectMany(itf => itf.GetProperties());
+            return type.GetTypeInfo().GetInterfaces().Concat(new Type[] { type }).SelectMany(itf => itf.GetTypeInfo().GetProperties());
         }
     }
 }

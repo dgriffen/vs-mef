@@ -9,7 +9,8 @@ namespace Microsoft.VisualStudio.Composition
 
     internal static partial class CollectionServices
     {
-        private static readonly ConstructorInfo CollectionOfObjectCtor = typeof(CollectionOfObject<>).GetConstructors()[0];
+        private static readonly Type[] CollectionOfObjectCtorArgTypes = new Type[] { typeof(object) };
+        private static readonly ConstructorInfo CollectionOfObjectCtor = typeof(CollectionOfObject<>).GetTypeInfo().GetConstructor(CollectionOfObjectCtorArgTypes);
         private static readonly Dictionary<Type, Func<object, ICollection<object>>> CachedCollectionWrapperFactories = new Dictionary<Type, Func<object, ICollection<object>>>();
 
         internal static ICollection<object> GetCollectionWrapper(Type itemType, object collectionObject)
@@ -17,7 +18,7 @@ namespace Microsoft.VisualStudio.Composition
             Requires.NotNull(itemType, nameof(itemType));
             Requires.NotNull(collectionObject, nameof(collectionObject));
 
-            var underlyingItemType = itemType.UnderlyingSystemType;
+            var underlyingItemType = itemType.GetTypeInfo().UnderlyingSystemType;
 
             if (underlyingItemType == typeof(object))
             {
@@ -27,7 +28,7 @@ namespace Microsoft.VisualStudio.Composition
             // Most common .Net collections implement IList as well so for those
             // cases we can optimize the wrapping instead of using reflection to create
             // a generic type.
-            if (typeof(IList).IsAssignableFrom(collectionObject.GetType()))
+            if (typeof(IList).GetTypeInfo().IsAssignableFrom(collectionObject.GetType().GetTypeInfo()))
             {
                 return new CollectionOfObjectList((IList)collectionObject);
             }
@@ -41,7 +42,11 @@ namespace Microsoft.VisualStudio.Composition
             if (factory == null)
             {
                 Type collectionType = typeof(CollectionOfObject<>).MakeGenericType(underlyingItemType);
+#if RuntimeHandles
                 var ctor = (ConstructorInfo)MethodBase.GetMethodFromHandle(CollectionOfObjectCtor.MethodHandle, collectionType.TypeHandle);
+#else
+                var ctor = typeof(CollectionOfObject<>).MakeGenericType(collectionType).GetConstructor(CollectionOfObjectCtorArgTypes);
+#endif
 
                 factory = collection =>
                 {

@@ -25,7 +25,12 @@ namespace Microsoft.VisualStudio.Composition
         private static readonly ImmutableHashSet<ComposablePartDefinition> AlwaysBundledParts = ImmutableHashSet.Create(
             ExportProvider.ExportProviderPartDefinition,
             PassthroughMetadataViewProvider.PartDefinition,
-            MetadataViewClassProvider.PartDefinition);
+            MetadataViewClassProvider.PartDefinition,
+            ExportMetadataViewInterfaceEmitProxy.PartDefinition)
+#if NET45
+            .Add(MetadataViewImplProxy.PartDefinition)
+#endif
+            ;
 
         private ImmutableDictionary<ComposablePartDefinition, string> effectiveSharingBoundaryOverrides;
 
@@ -500,7 +505,7 @@ namespace Microsoft.VisualStudio.Composition
             return dgml;
         }
 
-        [DebuggerDisplay("{PartDefinition.Type.Name}")]
+        [DebuggerDisplay("{" + nameof(PartDefinition) + "." + nameof(ComposablePartDefinition.Type) + ".Name}")]
         private class PartBuilder
         {
             internal PartBuilder(ComposablePartDefinition partDefinition, IReadOnlyDictionary<ImportDefinitionBinding, IReadOnlyList<ExportDefinitionBinding>> importedParts)

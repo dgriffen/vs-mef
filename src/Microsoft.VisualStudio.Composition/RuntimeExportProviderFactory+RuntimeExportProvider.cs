@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Composition
 
                 if (exportedValue != null)
                 {
-                    if (!import.ImportingSiteTypeWithoutCollection.IsAssignableFrom(exportedValue.GetType()))
+                    if (!import.ImportingSiteTypeWithoutCollection.GetTypeInfo().IsAssignableFrom(exportedValue.GetType()))
                     {
                         throw new CompositionFailedException(
                             string.Format(
@@ -374,7 +374,7 @@ namespace Microsoft.VisualStudio.Composition
                 bool containsGenericParameters = member.DeclaringType.GetTypeInfo().ContainsGenericParameters;
                 if (containsGenericParameters)
                 {
-                    member = ReflectionHelpers.CloseGenericType(member.DeclaringType, part.GetType())
+                    member = ReflectionHelpers.CloseGenericType(member.DeclaringType, part.GetType()).GetTypeInfo()
                         .GetMember(member.Name, MemberTypes.Property | MemberTypes.Field, DeclaredOnlyLookup)[0];
                 }
 
@@ -445,7 +445,7 @@ namespace Microsoft.VisualStudio.Composition
                 public PartLifecycleTracker ExportingPart { get; private set; }
             }
 
-            [DebuggerDisplay("{partDefinition.TypeRef.ResolvedType.FullName,nq} ({State})")]
+            [DebuggerDisplay("{" + nameof(partDefinition) + "." + nameof(RuntimeComposition.RuntimePart.TypeRef) + "." + nameof(TypeRef.ResolvedType) + ".FullName,nq} ({State})")]
             private class RuntimePartLifecycleTracker : PartLifecycleTracker
             {
                 private readonly RuntimeComposition.RuntimePart partDefinition;

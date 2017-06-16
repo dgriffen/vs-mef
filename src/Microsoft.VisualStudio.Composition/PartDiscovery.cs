@@ -130,8 +130,13 @@ namespace Microsoft.VisualStudio.Composition
                 {
                     try
                     {
-                        var assembly = Assembly.Load(AssemblyName.GetAssemblyName(path));
-                        return new Assembly[] { assembly };
+#if NET45
+                        return new Assembly[] { Assembly.Load(AssemblyName.GetAssemblyName(path)) };
+#elif NETCOREAPP1_0
+                        return new Assembly[] { System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path) };
+#else
+                        throw new NotSupportedException();
+#endif
                     }
                     catch (Exception ex)
                     {
@@ -168,9 +173,9 @@ namespace Microsoft.VisualStudio.Composition
             foreach (var attribute in member.GetAttributes<Attribute>())
             {
                 Type attrType = attribute.GetType();
-                if (attrType.IsAttributeDefined<TMetadataAttribute>(inherit: true))
+                if (attrType.GetTypeInfo().IsAttributeDefined<TMetadataAttribute>(inherit: true))
                 {
-                    assemblyNames.Add(attrType.Assembly.GetName());
+                    assemblyNames.Add(attrType.GetTypeInfo().Assembly.GetName());
                 }
             }
         }
@@ -395,7 +400,7 @@ namespace Microsoft.VisualStudio.Composition
                     }
                     catch (Exception ex)
                     {
-                        return new PartDiscoveryException(string.Format(CultureInfo.CurrentCulture, Strings.FailureWhileScanningType, type.FullName), ex) { AssemblyPath = type.Assembly.Location, ScannedType = type };
+                        return new PartDiscoveryException(string.Format(CultureInfo.CurrentCulture, Strings.FailureWhileScanningType, type.FullName), ex) { AssemblyPath = type.GetTypeInfo().Assembly.Location, ScannedType = type };
                     }
                 },
                 new ExecutionDataflowBlockOptions

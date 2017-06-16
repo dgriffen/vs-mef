@@ -114,14 +114,14 @@ namespace Microsoft.VisualStudio.Composition
 
                 bool valueTypeKnownExactly =
                     export.ExportingMemberRef.IsEmpty || // When [Export] appears on the type itself, we instantiate that exact type.
-                    exportingType.IsSealed;
+                    exportingType.GetTypeInfo().IsSealed;
                 if (valueTypeKnownExactly)
                 {
                     // There is no way that an exported value can implement the required types to make it assignable.
                     return Assignability.DefinitelyNot;
                 }
 
-                if (receivingType.IsInterface || exportingType.IsAssignableFrom(receivingType))
+                if (receivingType.GetTypeInfo().IsInterface || exportingType.GetTypeInfo().IsAssignableFrom(receivingType))
                 {
                     // The actual exported value at runtime *may* be a derived type that *is* assignable to the import site.
                     return Assignability.Maybe;
@@ -129,6 +129,18 @@ namespace Microsoft.VisualStudio.Composition
 
                 return Assignability.DefinitelyNot;
             }
+        }
+
+        internal static ImmutableArray<TypeRef> GetParameterTypes(this MethodBase method, Resolver resolver)
+        {
+            Requires.NotNull(method, nameof(method));
+            return method.GetParameters().Select(pi => TypeRef.Get(pi.ParameterType, resolver)).ToImmutableArray();
+        }
+
+        internal static ImmutableArray<TypeRef> GetGenericTypeArguments(this MethodBase method, Resolver resolver)
+        {
+            Requires.NotNull(method, nameof(method));
+            return method.GetGenericArguments().Select(t => TypeRef.Get(t, resolver)).ToImmutableArray();
         }
 
         internal static IEnumerable<PropertyInfo> EnumProperties(this Type type)
@@ -207,10 +219,12 @@ namespace Microsoft.VisualStudio.Composition
 
         internal static Type GetMemberType(MemberInfo fieldOrPropertyOrType)
         {
-            var type = fieldOrPropertyOrType as Type;
-            if (type != null)
+            Requires.NotNull(fieldOrPropertyOrType, nameof(fieldOrPropertyOrType));
+
+            var typeInfo = fieldOrPropertyOrType as TypeInfo;
+            if (typeInfo != null)
             {
-                return type;
+                return typeInfo.AsType();
             }
 
             var property = fieldOrPropertyOrType as PropertyInfo;
@@ -225,7 +239,7 @@ namespace Microsoft.VisualStudio.Composition
                 return field.FieldType;
             }
 
-            throw new ArgumentException(Strings.UnexpectedMemberType);
+            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Strings.UnexpectedMemberType, fieldOrPropertyOrType.MemberType));
         }
 
         internal static bool IsPublicInstance(this MethodInfo methodInfo)
@@ -491,9 +505,9 @@ namespace Microsoft.VisualStudio.Composition
 
             // The generic type arguments may be buried in the base type of the "constructedType" that we were given.
             var constructedGenericType = constructedType;
-            while (constructedGenericType != null && (!constructedGenericType.IsGenericType || !genericTypeDefinitionInfo.IsAssignableFrom(constructedGenericType.GetGenericTypeDefinition().GetTypeInfo())))
+            while (constructedGenericType != null && (!constructedGenericType.GetTypeInfo().IsGenericType || !genericTypeDefinitionInfo.IsAssignableFrom(constructedGenericType.GetGenericTypeDefinition().GetTypeInfo())))
             {
-                constructedGenericType = constructedGenericType.BaseType;
+                constructedGenericType = constructedGenericType.GetTypeInfo().BaseType;
             }
 
             Requires.Argument(constructedGenericType != null, "constructedType", Strings.NotClosedFormOfOther);
@@ -554,11 +568,15 @@ namespace Microsoft.VisualStudio.Composition
             {
                 if (namedArgument.IsField)
                 {
-                    ((FieldInfo)namedArgument.MemberInfo).SetValue(attribute, namedArgument.TypedValue.Value);
+                    var field = attributeData.AttributeType.GetField(namedArgument.MemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    Assumes.NotNull(field);
+                    field.SetValue(attribute, namedArgument.TypedValue.Value);
                 }
                 else
                 {
-                    ((PropertyInfo)namedArgument.MemberInfo).SetValue(attribute, namedArgument.TypedValue.Value);
+                    var property = attributeData.AttributeType.GetProperty(namedArgument.MemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    Assumes.NotNull(property);
+                    property.SetValue(attribute, namedArgument.TypedValue.Value);
                 }
             }
 
@@ -655,12 +673,12 @@ namespace Microsoft.VisualStudio.Composition
 
             foreach (var baseType in type.EnumTypeAndBaseTypes())
             {
-                assemblies.Add(baseType.Assembly.GetName());
+                assemblies.Add(baseType.GetTypeInfo().Assembly.GetName());
             }
 
-            foreach (var iface in type.GetInterfaces())
+            foreach (var iface in type.GetTypeInfo().GetInterfaces())
             {
-                assemblies.Add(iface.Assembly.GetName());
+                assemblies.Add(iface.GetTypeInfo().Assembly.GetName());
             }
         }
 

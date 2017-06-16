@@ -13,7 +13,7 @@ namespace Microsoft.VisualStudio.Composition
     using System.Threading.Tasks;
     using Reflection;
 
-    [DebuggerDisplay("{Definition.Type.Name}")]
+    [DebuggerDisplay("{" + nameof(Definition) + "." + nameof(ComposablePartDefinition.Type) + ".Name}")]
     public class ComposedPart
     {
         public ComposedPart(ComposablePartDefinition definition, IReadOnlyDictionary<ImportDefinitionBinding, IReadOnlyList<ExportDefinitionBinding>> satisfyingExports, IImmutableSet<string> requiredSharingBoundaries)
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Composition
             }
 
             var importsWithGenericTypeParameters = this.Definition.Imports
-                .Where(import => import.ImportingSiteElementType.ContainsGenericParameters).ToList();
+                .Where(import => import.ImportingSiteElementType.GetTypeInfo().ContainsGenericParameters).ToList();
             foreach (var import in importsWithGenericTypeParameters)
             {
                 yield return new ComposedPartDiagnostic(
