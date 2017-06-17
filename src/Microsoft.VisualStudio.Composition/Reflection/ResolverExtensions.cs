@@ -38,17 +38,22 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 #endif
         }
 
-        public static MethodInfo Resolve(this MethodRef methodRef)
+        public static MethodBase Resolve(this MethodRef methodRef)
         {
             if (methodRef.IsEmpty)
             {
                 return null;
             }
 
-            var manifest = methodRef.Resolver.GetManifest(methodRef.DeclaringType.AssemblyName);
 #if RuntimeHandles
-            var method = (MethodInfo)manifest.ResolveMethod(methodRef.MetadataToken);
+            var manifest = methodRef.Resolver.GetManifest(methodRef.DeclaringType.AssemblyName);
+            var method = manifest.ResolveMethod(methodRef.MetadataToken);
 #else
+            if (methodRef.Name == ConstructorInfo.ConstructorName)
+            {
+                return Resolve(new ConstructorRef(methodRef.DeclaringType, methodRef.MetadataToken, methodRef.ParameterTypes));
+            }
+
             var method = FindMethodByParameters(
                 Resolve(methodRef.DeclaringType).GetTypeInfo().GetMethods(AllInstanceMembers),
                 methodRef.Name,
@@ -56,7 +61,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 #endif
             if (methodRef.GenericMethodArguments.Length > 0)
             {
-                var constructedMethod = method.MakeGenericMethod(methodRef.GenericMethodArguments.Select(Resolve).ToArray());
+                var constructedMethod = ((MethodInfo)method).MakeGenericMethod(methodRef.GenericMethodArguments.Select(Resolve).ToArray());
                 return constructedMethod;
             }
 

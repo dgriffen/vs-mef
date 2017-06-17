@@ -137,10 +137,13 @@ namespace Microsoft.VisualStudio.Composition
             return method.GetParameters().Select(pi => TypeRef.Get(pi.ParameterType, resolver)).ToImmutableArray();
         }
 
-        internal static ImmutableArray<TypeRef> GetGenericTypeArguments(this MethodBase method, Resolver resolver)
+        internal static ImmutableArray<TypeRef> GetGenericTypeArguments(this MethodBase methodBase, Resolver resolver)
         {
-            Requires.NotNull(method, nameof(method));
-            return method.GetGenericArguments().Select(t => TypeRef.Get(t, resolver)).ToImmutableArray();
+            Requires.NotNull(methodBase, nameof(methodBase));
+
+            return methodBase is MethodInfo method
+                ? methodBase.GetGenericArguments().Select(t => TypeRef.Get(t, resolver)).ToImmutableArray()
+                : ImmutableArray<TypeRef>.Empty;
         }
 
         internal static IEnumerable<PropertyInfo> EnumProperties(this Type type)
@@ -581,6 +584,24 @@ namespace Microsoft.VisualStudio.Composition
             }
 
             return attribute;
+        }
+
+        internal static object Instantiate(this MethodBase ctorOrFactoryMethod, object[] arguments)
+        {
+            Requires.NotNull(ctorOrFactoryMethod, nameof(ctorOrFactoryMethod));
+
+            if (ctorOrFactoryMethod is ConstructorInfo ctor)
+            {
+                return ctor.Invoke(arguments);
+            }
+            else if (ctorOrFactoryMethod is MethodInfo method && method.IsStatic)
+            {
+                return method.Invoke(null, arguments);
+            }
+            else
+            {
+                throw new NotSupportedException("Cannot instantiate with unsupported importing constructor of type: " + ctorOrFactoryMethod.GetType().Name);
+            }
         }
 
         internal static void GetInputAssembliesFromMetadata(ISet<AssemblyName> assemblies, IReadOnlyDictionary<string, object> metadata)

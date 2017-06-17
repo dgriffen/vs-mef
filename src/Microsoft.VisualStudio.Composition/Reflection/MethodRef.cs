@@ -39,8 +39,13 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         }
 #endif
 
-        public MethodRef(MethodInfo method, Resolver resolver)
+        public MethodRef(MethodBase method, Resolver resolver)
             : this(TypeRef.Get(method.DeclaringType, resolver), method.MetadataToken, method.Name, method.GetParameterTypes(resolver), method.GetGenericTypeArguments(resolver))
+        {
+        }
+
+        public MethodRef(ConstructorRef constructor)
+            : this(constructor.DeclaringType, constructor.MetadataToken, ConstructorInfo.ConstructorName, constructor.ParameterTypes, ImmutableArray<TypeRef>.Empty)
         {
         }
 
@@ -61,7 +66,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
         internal Resolver Resolver => this.DeclaringType?.Resolver;
 
-        public static MethodRef Get(MethodInfo method, Resolver resolver)
+        public static MethodRef Get(MethodBase method, Resolver resolver)
         {
             return method != null ? new MethodRef(method, resolver) : default(MethodRef);
         }

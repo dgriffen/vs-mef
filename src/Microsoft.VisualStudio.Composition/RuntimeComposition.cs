@@ -164,16 +164,13 @@ namespace Microsoft.VisualStudio.Composition
         {
             Requires.NotNull(part, nameof(part));
 
-            var partDefinitionType = part.Definition.Type;
-            var importingConstructor = part.Definition.ImportingConstructorInfo;
-            var onImportsSatisfied = part.Definition.OnImportsSatisfied;
             var runtimePart = new RuntimePart(
-                TypeRef.Get(partDefinitionType, part.Resolver),
-                importingConstructor != null ? new ConstructorRef(importingConstructor, part.Resolver) : default(ConstructorRef),
+                part.Definition.TypeRef,
+                part.Definition.ImportingConstructorOrFactoryRef,
                 part.GetImportingConstructorImports().Select(kvp => CreateRuntimeImport(kvp.Key, kvp.Value, part.Resolver)).ToImmutableArray(),
                 part.Definition.ImportingMembers.Select(idb => CreateRuntimeImport(idb, part.SatisfyingExports[idb], part.Resolver)).ToImmutableArray(),
-                part.Definition.ExportDefinitions.Select(ed => CreateRuntimeExport(ed.Value, partDefinitionType, ed.Key, part.Resolver)).ToImmutableArray(),
-                onImportsSatisfied != null ? new MethodRef(onImportsSatisfied, part.Resolver) : default(MethodRef),
+                part.Definition.ExportDefinitions.Select(ed => CreateRuntimeExport(ed.Value, part.Definition.Type, ed.Key, part.Resolver)).ToImmutableArray(),
+                part.Definition.OnImportsSatisfiedRef,
                 part.Definition.IsShared ? configuration.GetEffectiveSharingBoundary(part.Definition) : null);
             return runtimePart;
         }
@@ -239,12 +236,12 @@ namespace Microsoft.VisualStudio.Composition
         [DebuggerDisplay("{" + nameof(RuntimePart.TypeRef) + "." + nameof(Reflection.TypeRef.ResolvedType) + ".FullName,nq}")]
         public class RuntimePart : IEquatable<RuntimePart>
         {
-            private ConstructorInfo importingConstructor;
+            private MethodBase importingConstructor;
             private MethodInfo onImportsSatisfied;
 
             public RuntimePart(
                 TypeRef type,
-                ConstructorRef importingConstructor,
+                MethodRef importingConstructor,
                 IReadOnlyList<RuntimeImport> importingConstructorArguments,
                 IReadOnlyList<RuntimeImport> importingMembers,
                 IReadOnlyList<RuntimeExport> exports,
@@ -262,7 +259,7 @@ namespace Microsoft.VisualStudio.Composition
 
             public TypeRef TypeRef { get; private set; }
 
-            public ConstructorRef ImportingConstructorRef { get; private set; }
+            public MethodRef ImportingConstructorRef { get; private set; }
 
             public IReadOnlyList<RuntimeImport> ImportingConstructorArguments { get; private set; }
 
@@ -284,7 +281,7 @@ namespace Microsoft.VisualStudio.Composition
                 get { return !this.ImportingConstructorRef.IsEmpty; }
             }
 
-            public ConstructorInfo ImportingConstructor
+            public MethodBase ImportingConstructor
             {
                 get
                 {
@@ -303,7 +300,7 @@ namespace Microsoft.VisualStudio.Composition
                 {
                     if (this.onImportsSatisfied == null)
                     {
-                        this.onImportsSatisfied = this.OnImportsSatisfiedRef.Resolve();
+                        this.onImportsSatisfied = (MethodInfo)this.OnImportsSatisfiedRef.Resolve();
                     }
 
                     return this.onImportsSatisfied;
