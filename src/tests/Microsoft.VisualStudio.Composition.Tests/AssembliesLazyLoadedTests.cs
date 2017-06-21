@@ -19,6 +19,8 @@ namespace Microsoft.VisualStudio.Composition.Tests
     using Xunit;
 
     [Trait("Efficiency", "LazyLoad")]
+    [Trait("AppDomains", "true")]
+    [Trait("Cache", "persistent")]
     public abstract class AssembliesLazyLoadedTests : IDisposable
     {
         private ICompositionCacheManager cacheManager;
@@ -42,12 +44,11 @@ namespace Microsoft.VisualStudio.Composition.Tests
         /// Verifies that the assemblies that MEF parts belong to are only loaded when their parts are actually instantiated.
         /// </summary>
         [SkippableFact]
-        [Trait("AppDomains", "true")]
         public async Task ComposableAssembliesLazyLoadedWhenQueried()
         {
             SkipOnMono();
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(ExternalExport), typeof(YetAnotherExport)));
+            var catalog = await this.CreateStableCatalogAsync(
+                typeof(ExternalExport), typeof(YetAnotherExport));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -70,8 +71,8 @@ namespace Microsoft.VisualStudio.Composition.Tests
         [Fact(Skip = "We have to resolve the TypeRefs to traverse the hierarchy of types currently")]
         public async Task CatalogGetInputAssembliesDoesNotLoadLazyExports()
         {
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(ExternalExportWithExternalMetadataType), typeof(ExternalExportWithExternalMetadataTypeArray), typeof(ExternalExportWithExternalMetadataEnum32)));
+            var catalog = await this.CreateCatalogAsync(
+                typeof(ExternalExportWithExternalMetadataType), typeof(ExternalExportWithExternalMetadataTypeArray), typeof(ExternalExportWithExternalMetadataEnum32));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -95,12 +96,11 @@ namespace Microsoft.VisualStudio.Composition.Tests
         /// Verifies that the assemblies that MEF parts belong to are only loaded when their parts are actually instantiated.
         /// </summary>
         [SkippableFact]
-        [Trait("AppDomains", "true")]
         public async Task ComposableAssembliesLazyLoadedByLazyImport()
         {
             SkipOnMono();
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(ExternalExportWithLazy), typeof(YetAnotherExport)));
+            var catalog = await this.CreateCatalogAsync(
+                typeof(ExternalExportWithLazy), typeof(YetAnotherExport));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -124,12 +124,11 @@ namespace Microsoft.VisualStudio.Composition.Tests
         /// their metadata is actually retrieved.
         /// </summary>
         [SkippableFact]
-        [Trait("AppDomains", "true")]
         public async Task ComposableAssembliesLazyLoadedByLazyMetadataDictionary()
         {
             SkipOnMono();
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(PartThatLazyImportsExportWithTypeMetadataViaDictionary), typeof(AnExportWithMetadataTypeValue)));
+            var catalog = await this.CreateCatalogAsync(
+                typeof(PartThatLazyImportsExportWithTypeMetadataViaDictionary), typeof(AnExportWithMetadataTypeValue));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -153,12 +152,11 @@ namespace Microsoft.VisualStudio.Composition.Tests
         /// their metadata is actually retrieved.
         /// </summary>
         [SkippableFact]
-        [Trait("AppDomains", "true")]
         public async Task ComposableAssembliesLazyLoadedByLazyTMetadata()
         {
             SkipOnMono();
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(PartThatLazyImportsExportWithTypeMetadataViaTMetadata), typeof(AnExportWithMetadataTypeValue)));
+            var catalog = await this.CreateCatalogAsync(
+                typeof(PartThatLazyImportsExportWithTypeMetadataViaTMetadata), typeof(AnExportWithMetadataTypeValue));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -182,12 +180,11 @@ namespace Microsoft.VisualStudio.Composition.Tests
         /// defines a type used as a generic type argument elsewhere.
         /// </summary>
         [SkippableFact]
-        [Trait("AppDomains", "true")]
         public async Task ComposableAssembliesLazyLoadedWithGenericTypeArg()
         {
             SkipOnMono();
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(PartImportingOpenGenericExport), typeof(OpenGenericExport<>)));
+            var catalog = await this.CreateCatalogAsync(
+                typeof(PartImportingOpenGenericExport), typeof(OpenGenericExport<>));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -211,12 +208,11 @@ namespace Microsoft.VisualStudio.Composition.Tests
         /// are actually required by some import.
         /// </summary>
         [SkippableFact]
-        [Trait("AppDomains", "true")]
         public async Task ComposableAssembliesLazyLoadedWhenCustomMetadataIsRequired()
         {
             SkipOnMono();
-            var catalog = TestUtilities.EmptyCatalog.AddParts(
-                await TestUtilities.V2Discovery.CreatePartsAsync(typeof(ExportWithCustomMetadata), typeof(PartThatLazyImportsExportWithMetadataOfCustomType)));
+            var catalog = await this.CreateCatalogAsync(
+                typeof(ExportWithCustomMetadata), typeof(PartThatLazyImportsExportWithMetadataOfCustomType));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
             var compositionCache = await this.SaveConfigurationAsync(configuration);
@@ -258,6 +254,18 @@ namespace Microsoft.VisualStudio.Composition.Tests
             await new CachedCatalog().SaveAsync(catalog, ms);
             ms.Position = 0;
             return ms;
+        }
+
+        private async Task<ComposableCatalog> CreateCatalogAsync(params Type[] parts)
+        {
+            return TestUtilities.EmptyCatalog
+                .AddParts(await TestUtilities.V2Discovery.CreatePartsAsync(parts));
+        }
+
+        private async Task<ComposableCatalog> CreateStableCatalogAsync(params Type[] parts)
+        {
+            var originalCatalog = await this.CreateCatalogAsync(parts);
+            return new CachedCatalog().Stabilize(originalCatalog, this.tfc.AddExtension("dll"));
         }
 
         private class AppDomainTestDriver : MarshalByRefObject

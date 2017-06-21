@@ -8,6 +8,8 @@ namespace Microsoft.VisualStudio.Composition
     using System.Globalization;
     using System.IO;
     using System.Linq;
+    using System.Reflection;
+    using System.Reflection.Emit;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
@@ -15,7 +17,60 @@ namespace Microsoft.VisualStudio.Composition
 
     public class CachedCatalog
     {
+        private const string DefaultCacheAssemblyName = "VSMefCache";
+        private const string CacheAssemblyExtension = ".dll";
+
+        private static readonly ConstructorInfo AssemblyVersionAttributeCtor = typeof(AssemblyVersionAttribute).GetTypeInfo().GetConstructor(new Type[] { typeof(string) });
+        private static readonly Random CacheAssemblyVersionGenerator = new Random();
+
         protected static readonly Encoding TextEncoding = Encoding.UTF8;
+
+#if NET45
+
+        public ComposableCatalog Stabilize(ComposableCatalog catalog, string cacheAssemblyPath)
+        {
+            Requires.NotNull(catalog, nameof(catalog));
+            Requires.NotNullOrEmpty(cacheAssemblyPath, nameof(cacheAssemblyPath));
+
+            string fileExtension = Path.GetExtension(cacheAssemblyPath);
+            Requires.Argument(string.Equals(CacheAssemblyExtension, fileExtension, StringComparison.OrdinalIgnoreCase), nameof(cacheAssemblyPath), "Cache assembly must have a .dll file extension.");
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(cacheAssemblyPath);
+            string directory = Path.GetDirectoryName(cacheAssemblyPath);
+
+            var assemblyName = CreateAssemblyName(cacheAssemblyPath);
+            var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
+                assemblyName,
+                AssemblyBuilderAccess.Save,
+                directory);
+            string moduleName = fileNameWithoutExtension + fileExtension;
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(moduleName, moduleName);
+
+            var cacheAssemblyBuilder = new CacheAssemblyBuilder(assemblyName, assemblyBuilder, moduleBuilder, catalog.Resolver);
+            var stableCatalog = cacheAssemblyBuilder.Wrap(catalog);
+
+            Directory.CreateDirectory(directory);
+            assemblyBuilder.Save(moduleName);
+
+            return stableCatalog;
+        }
+
+        public ComposableCatalog Stabilize(ComposableCatalog catalog)
+        {
+            Requires.NotNull(catalog, nameof(catalog));
+
+            var assemblyName = CreateAssemblyName();
+            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
+                assemblyName,
+                AssemblyBuilderAccess.RunAndCollect);
+            string moduleName = assemblyName.Name + CacheAssemblyExtension;
+            var moduleBuilder = assemblyBuilder.DefineDynamicModule(moduleName);
+
+            var cacheAssemblyBuilder = new CacheAssemblyBuilder(assemblyName, assemblyBuilder, moduleBuilder, catalog.Resolver);
+            var stableCatalog = cacheAssemblyBuilder.Wrap(catalog);
+
+            return stableCatalog;
+        }
+#endif
 
         public Task SaveAsync(ComposableCatalog catalog, Stream cacheStream, CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -47,6 +102,43 @@ namespace Microsoft.VisualStudio.Composition
                     return catalog;
                 }
             });
+        }
+
+        private static Version GenerateCacheAssemblyVersion()
+        {
+            int maxValue = ushort.MaxValue - 1;
+            int major, minor, build, revision;
+            lock (CacheAssemblyVersionGenerator)
+            {
+                major = CacheAssemblyVersionGenerator.Next(maxValue);
+                minor = CacheAssemblyVersionGenerator.Next(maxValue);
+                build = CacheAssemblyVersionGenerator.Next(maxValue);
+                revision = CacheAssemblyVersionGenerator.Next(maxValue);
+            }
+
+            return new Version(major, minor, build, revision);
+        }
+
+        private static AssemblyName CreateAssemblyName(string assemblyPath = null)
+        {
+            string fileNameWithoutExtension = assemblyPath != null ? Path.GetFileNameWithoutExtension(assemblyPath) : DefaultCacheAssemblyName;
+            Version version = GenerateCacheAssemblyVersion();
+            var assemblyName = new AssemblyName($"{fileNameWithoutExtension ?? DefaultCacheAssemblyName}, Version={version}, Culture=neutral, PublicKeyToken=null");
+#if NET45
+            if (assemblyPath != null)
+            {
+                assemblyName.CodeBase = new Uri(assemblyPath).AbsoluteUri;
+            }
+#endif
+
+            return assemblyName;
+        }
+
+        private static CustomAttributeBuilder CreateAssemblyVersionAttribute(AssemblyName assemblyName)
+        {
+            Requires.NotNull(assemblyName, nameof(assemblyName));
+
+            return new CustomAttributeBuilder(AssemblyVersionAttributeCtor, new object[] { assemblyName.Version.ToString() });
         }
 
         private class SerializationContext : SerializationContextBase

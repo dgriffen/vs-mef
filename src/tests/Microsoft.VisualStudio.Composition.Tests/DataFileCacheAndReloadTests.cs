@@ -7,7 +7,9 @@ namespace Microsoft.VisualStudio.Composition.Tests
     using System.Linq;
     using System.Text;
     using System.Threading.Tasks;
+    using Xunit;
 
+    [Trait("Cache", "volatile")]
     public class DataFileCacheAndReloadTests : CacheAndReloadTests
     {
         public DataFileCacheAndReloadTests()

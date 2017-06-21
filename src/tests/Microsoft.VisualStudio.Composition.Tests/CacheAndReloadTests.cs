@@ -24,10 +24,22 @@ namespace Microsoft.VisualStudio.Composition.Tests
             this.cacheManager = cacheManager;
         }
 
-        [Fact]
-        public async Task CacheAndReload()
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task CacheAndReload(bool stabilizeCatalog)
         {
             var catalog = TestUtilities.EmptyCatalog.AddParts(new[] { TestUtilities.V2Discovery.CreatePart(typeof(SomeExport)) });
+            if (stabilizeCatalog)
+            {
+#if NET452
+                var cachedCatalog = new CachedCatalog();
+                catalog = cachedCatalog.Stabilize(catalog);
+#else
+                throw new SkipException("Not applicable on .NET Core");
+#endif
+            }
+
             var configuration = CompositionConfiguration.Create(catalog);
             var ms = new MemoryStream();
             await this.cacheManager.SaveAsync(configuration, ms);
