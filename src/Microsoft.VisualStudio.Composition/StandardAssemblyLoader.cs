@@ -8,6 +8,8 @@ namespace Microsoft.VisualStudio.Composition
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
     using System.Reflection;
 
     /// <summary>
@@ -44,7 +46,21 @@ namespace Microsoft.VisualStudio.Composition
                     Version = assemblyName.Version,
                 };
 #endif
-                assembly = Assembly.Load(assemblyName);
+                try
+                {
+                    assembly = Assembly.Load(assemblyName);
+                }
+                catch (FileNotFoundException)
+                {
+#if NET45
+                    // Dynamic assemblies may already have been loaded in memory.
+                    assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => ByValueEquality.AssemblyName.Equals(a.GetName(), assemblyName));
+#endif
+                    if (assembly == null)
+                    {
+                        throw;
+                    }
+                }
 
                 lock (this.loadedAssemblies)
                 {
