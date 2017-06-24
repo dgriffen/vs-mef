@@ -8,12 +8,13 @@ namespace Microsoft.VisualStudio.Composition.Tests
     using System.Text;
     using System.Threading.Tasks;
     using Xunit;
+    using Xunit.Abstractions;
 
     [Trait("Cache", "volatile")]
     public class DataFileCacheAndReloadTests : CacheAndReloadTests
     {
-        public DataFileCacheAndReloadTests()
-            : base(new CachedComposition())
+        public DataFileCacheAndReloadTests(ITestOutputHelper logger)
+            : base(logger, new CachedComposition())
         {
         }
     }

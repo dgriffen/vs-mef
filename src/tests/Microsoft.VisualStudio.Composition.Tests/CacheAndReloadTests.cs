@@ -13,14 +13,17 @@ namespace Microsoft.VisualStudio.Composition.Tests
     using Microsoft.VisualStudio.Composition.AppDomainTests;
     using Microsoft.VisualStudio.Composition.AppDomainTests2;
     using Xunit;
+    using Xunit.Abstractions;
 
     public abstract class CacheAndReloadTests
     {
+        private readonly ITestOutputHelper logger;
         private ICompositionCacheManager cacheManager;
 
-        protected CacheAndReloadTests(ICompositionCacheManager cacheManager)
+        protected CacheAndReloadTests(ITestOutputHelper logger, ICompositionCacheManager cacheManager)
         {
             Requires.NotNull(cacheManager, nameof(cacheManager));
+            this.logger = logger;
             this.cacheManager = cacheManager;
         }
 
@@ -52,6 +55,31 @@ namespace Microsoft.VisualStudio.Composition.Tests
             SomeExport export = container.GetExportedValue<SomeExport>();
             Assert.NotNull(export);
         }
+
+#if NET452
+        [Fact]
+        public async Task StabilizeVSCatalog()
+        {
+            using (var catalogReader = File.OpenRead(@"C:\Users\andarno\AppData\Local\microsoft\visualstudio\15.0_977a95f0\ComponentModelCache\Microsoft.VisualStudio.Default.catalogs"))
+            {
+                var binaryReader = new BinaryReader(catalogReader);
+                long version = binaryReader.ReadInt64();
+                int catalogCount = binaryReader.ReadInt32();
+                var catalogs = new ComposableCatalog[catalogCount];
+                var cacheSystem = new CachedCatalog();
+                for (int i = 0; i < catalogCount; i++)
+                {
+                    catalogs[i] = await cacheSystem.LoadAsync(catalogReader, Resolver.DefaultInstance);
+                }
+
+                var unifiedCatalog = ComposableCatalog.Create(Resolver.DefaultInstance)
+                    .AddCatalogs(catalogs);
+                string assemblyPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".dll");
+                var cachedCatalog = cacheSystem.Stabilize(unifiedCatalog, assemblyPath);
+                this.logger.WriteLine(assemblyPath);
+            }
+        }
+#endif
 
         [Export]
         public class SomeExport { }
