@@ -39,6 +39,10 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         /// </summary>
         private readonly Dictionary<MethodBase, (MethodInfo, MethodRef)> methodBuilders = new Dictionary<MethodBase, (MethodInfo, MethodRef)>();
 
+        private readonly Dictionary<FieldInfo, (MethodInfo, MethodRef)> fieldGetterBuilders = new Dictionary<FieldInfo, (MethodInfo, MethodRef)>();
+
+        private readonly Dictionary<FieldInfo, (MethodInfo, MethodRef)> fieldSetterBuilders = new Dictionary<FieldInfo, (MethodInfo, MethodRef)>();
+
         /// <summary>
         /// Tracks adding skip visibility check attributes to the dynamic assembly.
         /// </summary>
@@ -78,7 +82,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         {
             var importingMembers = partDefinition.ImportingMembers.Select(this.Wrap).ToList();
             var exportingMembers = partDefinition.ExportingMembers.ToDictionary(
-                kv => new MemberRef(this.Wrap(kv.Key.Resolve()).Item2),
+                kv => new MemberRef(this.Wrap(kv.Key.Resolve(), setValue: false).Item2),
                 kv => kv.Value);
             var onImportsSatisfiedRef = partDefinition.OnImportsSatisfiedRef.IsEmpty ? default(MethodRef) : this.Wrap(partDefinition.OnImportsSatisfied).Item2;
             var importingConstructorRef = partDefinition.ImportingConstructorOrFactoryRef.IsEmpty ? default(MethodRef) : this.Wrap(partDefinition.ImportingConstructorOrFactory).Item2;
@@ -123,6 +127,8 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                     return this.Wrap(property.SetMethod);
                 case PropertyInfo property when !setValue:
                     return this.Wrap(property.GetMethod);
+                case FieldInfo field:
+                    return this.Wrap(field, setValue);
                 default:
                     throw new ArgumentException("Unsupported type: " + memberInfo.GetType().Name);
             }
@@ -226,6 +232,61 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 }
 
                 il.Emit(methodInfo.IsStatic ? OpCodes.Call : OpCodes.Callvirt, methodInfo);
+
+                il.Emit(OpCodes.Ret);
+            }
+
+            return tuple;
+        }
+
+        private (MemberInfo, MethodRef) Wrap(FieldInfo fieldInfo, bool setValue)
+        {
+            Requires.NotNull(fieldInfo, nameof(fieldInfo));
+
+            var relevantAccessorDictionary = setValue ? this.fieldSetterBuilders : this.fieldGetterBuilders;
+            if (!relevantAccessorDictionary.TryGetValue(fieldInfo, out var tuple))
+            {
+                this.skipVisibilityChecks.SkipVisibilityChecksFor(fieldInfo);
+                var (typeBuilder, typeRef) = this.GetTypeBuilderForMember(fieldInfo);
+
+                int parameterCount = fieldInfo.IsStatic ? 0 : 1;
+                if (setValue)
+                {
+                    parameterCount++;
+                }
+
+                Type[] parameterTypes = new Type[parameterCount];
+                int parameterIndex = 0;
+                if (!fieldInfo.IsStatic)
+                {
+                    parameterTypes[parameterIndex++] = fieldInfo.DeclaringType;
+                }
+
+                if (setValue)
+                {
+                    parameterTypes[parameterIndex++] = fieldInfo.FieldType;
+                }
+
+                var methodBuilder = typeBuilder.DefineMethod(
+                   (setValue ? "set_" : "get_") + fieldInfo.Name,
+                   MethodAttributes.Static | MethodAttributes.HideBySig,
+                   setValue ? null : fieldInfo.FieldType,
+                   parameterTypes);
+                var methodRef = new MethodRef(
+                    typeRef,
+                    methodBuilder.GetToken().Token,
+                    methodBuilder.Name,
+                    parameterTypes.Select(p => TypeRef.Get(p, this.resolver)).ToImmutableArray(),
+                    ImmutableArray<TypeRef>.Empty);
+                relevantAccessorDictionary[fieldInfo] = tuple = (methodBuilder, methodRef);
+
+                var il = methodBuilder.GetILGenerator();
+                for (int i = 0; i < parameterTypes.Length; i++)
+                {
+                    LoadArg(il, i);
+                }
+
+                il.Emit(setValue ? OpCodes.Stfld : OpCodes.Ldfld, fieldInfo);
 
                 il.Emit(OpCodes.Ret);
             }
