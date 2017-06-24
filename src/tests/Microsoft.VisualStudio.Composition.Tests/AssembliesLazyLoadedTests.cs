@@ -71,7 +71,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         [Fact(Skip = "We have to resolve the TypeRefs to traverse the hierarchy of types currently")]
         public async Task CatalogGetInputAssembliesDoesNotLoadLazyExports()
         {
-            var catalog = await this.CreateCatalogAsync(
+            var catalog = await this.CreateStableCatalogAsync(
                 typeof(ExternalExportWithExternalMetadataType), typeof(ExternalExportWithExternalMetadataTypeArray), typeof(ExternalExportWithExternalMetadataEnum32));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
@@ -99,7 +99,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         public async Task ComposableAssembliesLazyLoadedByLazyImport()
         {
             SkipOnMono();
-            var catalog = await this.CreateCatalogAsync(
+            var catalog = await this.CreateStableCatalogAsync(
                 typeof(ExternalExportWithLazy), typeof(YetAnotherExport));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         public async Task ComposableAssembliesLazyLoadedByLazyMetadataDictionary()
         {
             SkipOnMono();
-            var catalog = await this.CreateCatalogAsync(
+            var catalog = await this.CreateStableCatalogAsync(
                 typeof(PartThatLazyImportsExportWithTypeMetadataViaDictionary), typeof(AnExportWithMetadataTypeValue));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
@@ -155,7 +155,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         public async Task ComposableAssembliesLazyLoadedByLazyTMetadata()
         {
             SkipOnMono();
-            var catalog = await this.CreateCatalogAsync(
+            var catalog = await this.CreateStableCatalogAsync(
                 typeof(PartThatLazyImportsExportWithTypeMetadataViaTMetadata), typeof(AnExportWithMetadataTypeValue));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
@@ -183,7 +183,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         public async Task ComposableAssembliesLazyLoadedWithGenericTypeArg()
         {
             SkipOnMono();
-            var catalog = await this.CreateCatalogAsync(
+            var catalog = await this.CreateStableCatalogAsync(
                 typeof(PartImportingOpenGenericExport), typeof(OpenGenericExport<>));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);
@@ -211,7 +211,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         public async Task ComposableAssembliesLazyLoadedWhenCustomMetadataIsRequired()
         {
             SkipOnMono();
-            var catalog = await this.CreateCatalogAsync(
+            var catalog = await this.CreateStableCatalogAsync(
                 typeof(ExportWithCustomMetadata), typeof(PartThatLazyImportsExportWithMetadataOfCustomType));
             var catalogCache = await this.SaveCatalogAsync(catalog);
             var configuration = CompositionConfiguration.Create(catalog);

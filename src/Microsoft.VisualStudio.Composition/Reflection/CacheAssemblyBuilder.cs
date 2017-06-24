@@ -272,13 +272,43 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
         private (TypeBuilder, TypeRef) GetTypeBuilderForMember(MemberInfo memberToWrap)
         {
-            if (!this.typeBuilders.TryGetValue(memberToWrap.DeclaringType, out var tuple))
+            Requires.NotNull(memberToWrap, nameof(memberToWrap));
+
+            Type type = memberToWrap.DeclaringType;
+            if (!this.typeBuilders.TryGetValue(type, out var tuple))
             {
                 this.skipVisibilityChecks.SkipVisibilityChecksFor(memberToWrap);
 
                 var typeBuilder = this.moduleBuilder.DefineType(
-                    memberToWrap.DeclaringType.FullName,
+                    type.FullName,
                     TypeAttributes.NotPublic | TypeAttributes.BeforeFieldInit);
+                if (type.IsGenericType)
+                {
+                    var genericTypeDefinition = type.GetGenericTypeDefinition();
+                    var typeArgs = genericTypeDefinition.GetGenericArguments();
+                    var typeParameterBuilders = typeBuilder.DefineGenericParameters(typeArgs.Select(a => a.Name).ToArray());
+                    for (int i = 0; i < typeArgs.Length; i++)
+                    {
+                        var typeArg = typeArgs[i];
+                        var builder = typeParameterBuilders[i];
+
+                        builder.SetGenericParameterAttributes(typeArg.GenericParameterAttributes);
+
+                        var constraints = typeArg.GetGenericParameterConstraints();
+                        var baseTypeConstraint = constraints.SingleOrDefault(t => t.IsClass);
+                        if (baseTypeConstraint != null)
+                        {
+                            builder.SetBaseTypeConstraint(baseTypeConstraint);
+                        }
+
+                        var interfaceConstraints = constraints.Where(t => t.IsInterface).ToArray();
+                        if (interfaceConstraints.Length > 0)
+                        {
+                            builder.SetInterfaceConstraints(interfaceConstraints);
+                        }
+                    }
+                }
+
                 var typeRef = TypeRef.Get(
                     this.resolver,
                     this.assemblyName,
@@ -287,7 +317,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                     false,
                     0,
                     ImmutableArray<TypeRef>.Empty);
-                this.typeBuilders[memberToWrap.DeclaringType] = tuple = (typeBuilder, typeRef);
+                this.typeBuilders[type] = tuple = (typeBuilder, typeRef);
 
                 // TODO: suppress generation of the default constructor.
             }

@@ -224,25 +224,22 @@ namespace Microsoft.VisualStudio.Composition
         {
             Requires.NotNull(fieldOrPropertyOrType, nameof(fieldOrPropertyOrType));
 
-            var typeInfo = fieldOrPropertyOrType as TypeInfo;
-            if (typeInfo != null)
+            switch (fieldOrPropertyOrType)
             {
-                return typeInfo.AsType();
-            }
+                case TypeInfo typeInfo:
+                    return typeInfo.AsType();
+                case PropertyInfo property:
+                    return property.PropertyType;
+                case FieldInfo field:
+                    return field.FieldType;
+                case MethodInfo method when method.IsStatic && method.GetParameters().Length == 2:
 
-            var property = fieldOrPropertyOrType as PropertyInfo;
-            if (property != null)
-            {
-                return property.PropertyType;
+                    // This supports fields or properties that have a static method accessor generated
+                    // for purposes of a stable cache.
+                    return method.GetParameters()[1].ParameterType;
+                default:
+                    throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Strings.UnexpectedMemberType, fieldOrPropertyOrType.MemberType));
             }
-
-            var field = fieldOrPropertyOrType as FieldInfo;
-            if (field != null)
-            {
-                return field.FieldType;
-            }
-
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Strings.UnexpectedMemberType, fieldOrPropertyOrType.MemberType));
         }
 
         internal static bool IsPublicInstance(this MethodInfo methodInfo)
