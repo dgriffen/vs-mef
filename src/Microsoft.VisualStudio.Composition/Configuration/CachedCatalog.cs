@@ -61,7 +61,7 @@ namespace Microsoft.VisualStudio.Composition
             var assemblyName = CreateAssemblyName();
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
                 assemblyName,
-                AssemblyBuilderAccess.RunAndCollect);
+                AssemblyBuilderAccess.Run); // Don't use RunAndCollect till the ComposableCatalog we return has a strong reference to the dynamic assembly.
             string moduleName = assemblyName.Name + CacheAssemblyExtension;
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(moduleName);
 
@@ -106,6 +106,8 @@ namespace Microsoft.VisualStudio.Composition
 
         private static Version GenerateCacheAssemblyVersion()
         {
+            // It isn't enough to just increment a number, because the number may collide
+            // with an assembly that is loaded from disk from a prior session.
             int maxValue = ushort.MaxValue - 1;
             int major, minor, build, revision;
             lock (CacheAssemblyVersionGenerator)

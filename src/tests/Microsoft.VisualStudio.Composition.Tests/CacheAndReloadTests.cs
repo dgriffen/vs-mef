@@ -35,6 +35,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
 #if NET452
                 var cachedCatalog = new CachedCatalog();
                 catalog = cachedCatalog.Stabilize(catalog);
+                GC.Collect(); // Shake out any collectible dynamic assembly bugs
 #else
                 throw new SkipException("Not applicable on .NET Core");
 #endif
