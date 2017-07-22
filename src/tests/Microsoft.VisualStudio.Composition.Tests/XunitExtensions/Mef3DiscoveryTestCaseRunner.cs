@@ -126,8 +126,16 @@ namespace Microsoft.VisualStudio.Composition.Tests
                         configurations.Add((configuration, "no cache"));
 
 #if DESKTOP
-                        // Also test with an assembly cached catalog.
-                        var assemblyCachedCatalog = new CachedCatalog().Stabilize(catalogWithSupport);
+                        // Test assembly cache generation that includes saving to disk since that adds
+                        // additional requirements such as completing types, which we must verify happens.
+                        string assemblyPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".dll");
+                        var assemblyCachedCatalog = new CachedCatalog().Stabilize(catalogWithSupport, assemblyPath);
+                        File.Delete(assemblyPath);
+
+                        // Also test runtime with an assembly cached catalog, but generate one to memory
+                        // so we don't end up locking the assembly file on disk, leaving behind many turd files
+                        // from running tests.
+                        assemblyCachedCatalog = new CachedCatalog().Stabilize(catalogWithSupport);
                         configuration = CompositionConfiguration.Create(catalogWithSupport);
                         configurations.Add((configuration, "cached"));
 #endif
