@@ -74,8 +74,19 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         {
             // Note: This drops any DiscoveredParts and discovery errors in the original catalog.
             //       We can preserve that here if we need to.
-            return ComposableCatalog.Create(catalog.Resolver)
+            ComposableCatalog cachedCatalog = ComposableCatalog.Create(catalog.Resolver)
                 .AddParts(catalog.Parts.Select(this.Wrap));
+
+            // Complete the Type so it can be used and the assembly can be saved later.
+            foreach (var tb in this.typeBuilders.Values)
+            {
+                if (!tb.Item1.IsCreated())
+                {
+                    tb.Item1.CreateTypeInfo();
+                }
+            }
+
+            return cachedCatalog;
         }
 
         private ComposablePartDefinition Wrap(ComposablePartDefinition partDefinition)
@@ -86,19 +97,6 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 kv => kv.Value);
             var onImportsSatisfiedRef = partDefinition.OnImportsSatisfiedRef.IsEmpty ? default(MethodRef) : this.Wrap(partDefinition.OnImportsSatisfied).Item2;
             var importingConstructorRef = partDefinition.ImportingConstructorOrFactoryRef.IsEmpty ? default(MethodRef) : this.Wrap(partDefinition.ImportingConstructorOrFactory).Item2;
-
-            // Complete the Type so the assembly can be saved later.
-            if (this.typeBuilders.TryGetValue(partDefinition.Type, out var typeBuilder))
-            {
-                try
-                {
-                    typeBuilder.Item1.CreateTypeInfo();
-                }
-                catch (TypeLoadException)
-                {
-                    // Don't know why this is thrown, but it finalizes the type so the Assembly can be saved, and that's what matters.
-                }
-            }
 
             return new ComposablePartDefinition(
                 partDefinition.TypeRef,
