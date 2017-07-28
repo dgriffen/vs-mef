@@ -146,7 +146,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             return new ImportDefinitionBinding(
                 importDefinitionBinding.ImportDefinition,
                 importDefinitionBinding.ComposablePartTypeRef,
-                importingMember);
+                importingMember,
+                importDefinitionBinding.ImportingSiteTypeRef,
+                importDefinitionBinding.ImportingSiteTypeWithoutCollectionRef);
         }
 
         private (MethodInfo, MethodRef) Wrap(ConstructorInfo constructorInfo)
@@ -166,11 +168,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                    constructorInfo.DeclaringType,
                    parameterTypes);
                 var methodRef = new MethodRef(
-                    typeRef,
-                    methodBuilder.GetToken().Token,
-                    methodBuilder.Name,
-                    parameterTypeRefs,
-                    ImmutableArray<TypeRef>.Empty);
+                    methodBuilder,
+                    this.resolver,
+                    parameterTypeRefs);
                 this.methodBuilders[constructorInfo] = tuple = (methodBuilder, methodRef);
 
                 var il = methodBuilder.GetILGenerator();
@@ -216,11 +216,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                    methodInfo.ReturnType,
                    parameterTypes);
                 var methodRef = new MethodRef(
-                    typeRef,
-                    methodBuilder.GetToken().Token,
-                    methodBuilder.Name,
-                    parameterTypes.Select(p => TypeRef.Get(p, this.resolver)).ToImmutableArray(),
-                    ImmutableArray<TypeRef>.Empty);
+                    methodBuilder,
+                    this.resolver,
+                    parameterTypes.Select(p => TypeRef.Get(p, this.resolver)).ToImmutableArray());
                 this.methodBuilders[methodInfo] = tuple = (methodBuilder, methodRef);
 
                 var il = methodBuilder.GetILGenerator();
@@ -271,11 +269,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                    setValue ? null : fieldInfo.FieldType,
                    parameterTypes);
                 var methodRef = new MethodRef(
-                    typeRef,
-                    methodBuilder.GetToken().Token,
-                    methodBuilder.Name,
-                    parameterTypes.Select(p => TypeRef.Get(p, this.resolver)).ToImmutableArray(),
-                    ImmutableArray<TypeRef>.Empty);
+                    methodBuilder,
+                    this.resolver,
+                    parameterTypes.Select(p => TypeRef.Get(p, this.resolver)).ToImmutableArray());
                 relevantAccessorDictionary[fieldInfo] = tuple = (methodBuilder, methodRef);
 
                 var il = methodBuilder.GetILGenerator();
@@ -369,13 +365,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 }
 
                 var typeRef = TypeRef.Get(
+                    typeBuilder,
                     this.resolver,
-                    this.assemblyName,
-                    typeBuilder.TypeToken.Token,
-                    typeBuilder.FullName,
-                    false,
-                    0,
-                    ImmutableArray<TypeRef>.Empty);
+                    this.assemblyName);
                 this.typeBuilders[type] = tuple = (typeBuilder, typeRef);
 
                 // TODO: suppress generation of the default constructor.

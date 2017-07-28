@@ -27,6 +27,14 @@ namespace Microsoft.VisualStudio.Composition
 
 #if NET45
 
+        /// <summary>
+        /// Generates an intermediate assembly for the given <see cref="ComposableCatalog" /> to allow
+        /// fast metadata token based reflection APIs to work even after some of the referenced assemblies
+        /// are updated on disk.
+        /// </summary>
+        /// <param name="catalog">The catalog to modify.</param>
+        /// <param name="cacheAssemblyPath">The full path to the interop assembly to create.</param>
+        /// <returns>A derivative of <paramref name="catalog"/> where all member access has been redirected to the generated interop assembly.</returns>
         public ComposableCatalog Stabilize(ComposableCatalog catalog, string cacheAssemblyPath)
         {
             Requires.NotNull(catalog, nameof(catalog));
@@ -327,6 +335,9 @@ namespace Microsoft.VisualStudio.Composition
                 {
                     this.Write(importDefinitionBinding.ImportDefinition);
                     this.Write(importDefinitionBinding.ComposablePartTypeRef);
+                    this.Write(importDefinitionBinding.ImportingSiteTypeRef);
+                    this.Write(importDefinitionBinding.ImportingSiteTypeWithoutCollectionRef);
+
                     if (importDefinitionBinding.ImportingMemberRef.IsEmpty)
                     {
                         this.writer.Write(false);
@@ -346,6 +357,8 @@ namespace Microsoft.VisualStudio.Composition
                 {
                     var importDefinition = this.ReadImportDefinition();
                     var part = this.ReadTypeRef();
+                    var importingSiteTypeRef = this.ReadTypeRef();
+                    var importingSiteTypeWithoutCollectionRef = this.ReadTypeRef();
 
                     MemberRef member;
                     ParameterRef parameter;
@@ -353,12 +366,12 @@ namespace Microsoft.VisualStudio.Composition
                     if (isMember)
                     {
                         member = this.ReadMemberRef();
-                        return new ImportDefinitionBinding(importDefinition, part, member);
+                        return new ImportDefinitionBinding(importDefinition, part, member, importingSiteTypeRef, importingSiteTypeWithoutCollectionRef);
                     }
                     else
                     {
                         parameter = this.ReadParameterRef();
-                        return new ImportDefinitionBinding(importDefinition, part, parameter);
+                        return new ImportDefinitionBinding(importDefinition, part, parameter, importingSiteTypeRef, importingSiteTypeWithoutCollectionRef);
                     }
                 }
             }

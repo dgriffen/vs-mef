@@ -236,7 +236,6 @@ namespace Microsoft.VisualStudio.Composition
         [DebuggerDisplay("{" + nameof(RuntimePart.TypeRef) + "." + nameof(Reflection.TypeRef.ResolvedType) + ".FullName,nq}")]
         public class RuntimePart : IEquatable<RuntimePart>
         {
-            private MethodBase importingConstructor;
             private MethodInfo onImportsSatisfied;
 
             public RuntimePart(
@@ -281,31 +280,9 @@ namespace Microsoft.VisualStudio.Composition
                 get { return !this.ImportingConstructorRef.IsEmpty; }
             }
 
-            public MethodBase ImportingConstructor
-            {
-                get
-                {
-                    if (this.importingConstructor == null)
-                    {
-                        this.importingConstructor = this.ImportingConstructorRef.Resolve();
-                    }
+            public MethodBase ImportingConstructor => this.ImportingConstructorRef.MethodBase;
 
-                    return this.importingConstructor;
-                }
-            }
-
-            public MethodInfo OnImportsSatisfied
-            {
-                get
-                {
-                    if (this.onImportsSatisfied == null)
-                    {
-                        this.onImportsSatisfied = (MethodInfo)this.OnImportsSatisfiedRef.Resolve();
-                    }
-
-                    return this.onImportsSatisfied;
-                }
-            }
+            public MethodInfo OnImportsSatisfied => (MethodInfo)this.OnImportsSatisfiedRef.MethodBase;
 
             public override bool Equals(object obj)
             {

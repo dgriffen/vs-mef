@@ -141,9 +141,8 @@ namespace Microsoft.VisualStudio.Composition
         {
             Requires.NotNull(methodBase, nameof(methodBase));
 
-            return methodBase is MethodInfo method
-                ? methodBase.GetGenericArguments().Select(t => TypeRef.Get(t, resolver)).ToImmutableArray()
-                : ImmutableArray<TypeRef>.Empty;
+            return (methodBase as MethodInfo)?.GetGenericArguments()?.Select(t => TypeRef.Get(t, resolver)).ToImmutableArray()
+                ?? ImmutableArray<TypeRef>.Empty;
         }
 
         internal static IEnumerable<PropertyInfo> EnumProperties(this Type type)

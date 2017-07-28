@@ -161,27 +161,27 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
             if (memberRef.IsField)
             {
-                return memberRef.Field.Resolve();
+                return memberRef.Field.FieldInfo;
             }
 
             if (memberRef.IsProperty)
             {
-                return memberRef.Property.Resolve();
+                return memberRef.Property.PropertyInfo;
             }
 
             if (memberRef.IsMethod)
             {
-                return memberRef.Method.Resolve();
+                return memberRef.Method.MethodBase;
             }
 
             if (memberRef.IsConstructor)
             {
-                return memberRef.Constructor.Resolve();
+                return memberRef.Constructor.ConstructorInfo;
             }
 
             if (memberRef.IsType)
             {
-                return memberRef.Type.Resolve().GetTypeInfo();
+                return memberRef.Type.ResolvedType.GetTypeInfo();
             }
 
             throw new NotSupportedException();
