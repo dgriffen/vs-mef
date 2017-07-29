@@ -334,9 +334,19 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             {
                 this.skipVisibilityChecks.SkipVisibilityChecksFor(memberToWrap);
 
-                var typeBuilder = this.moduleBuilder.DefineType(
-                    type.FullName,
-                    TypeAttributes.NotPublic | TypeAttributes.BeforeFieldInit);
+                TypeBuilder typeBuilder;
+                var typeAttributes = TypeAttributes.NotPublic | TypeAttributes.BeforeFieldInit;
+                if (type.IsNested)
+                {
+                    // Define the nesting type.
+                    var nestingType = this.GetTypeBuilderForMember(type).Item1;
+                    typeBuilder = nestingType.DefineNestedType(type.Name, typeAttributes | TypeAttributes.NestedPrivate);
+                }
+                else
+                {
+                    typeBuilder = this.moduleBuilder.DefineType(type.FullName, typeAttributes);
+                }
+
                 if (type.IsGenericType)
                 {
                     var genericTypeDefinition = type.GetGenericTypeDefinition();
