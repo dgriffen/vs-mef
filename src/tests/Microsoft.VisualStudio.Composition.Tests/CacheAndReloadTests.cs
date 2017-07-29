@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
         }
 
 #if NET452
-        [Fact]
+        [Fact(Skip = "Hack. Delete this.")]
         public async Task StabilizeVSCatalog()
         {
             using (var catalogReader = File.OpenRead(@"C:\Users\andarno\AppData\Local\microsoft\visualstudio\15.0_977a95f0\ComponentModelCache\Microsoft.VisualStudio.Default.catalogs"))

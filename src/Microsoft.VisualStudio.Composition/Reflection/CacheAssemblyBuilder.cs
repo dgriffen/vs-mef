@@ -329,7 +329,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         {
             Requires.NotNull(memberToWrap, nameof(memberToWrap));
 
-            Type type = memberToWrap.DeclaringType;
+            Type type = memberToWrap.DeclaringType.IsGenericType ? memberToWrap.DeclaringType.GetGenericTypeDefinition() : memberToWrap.DeclaringType;
             if (!this.typeBuilders.TryGetValue(type, out var tuple))
             {
                 this.skipVisibilityChecks.SkipVisibilityChecksFor(memberToWrap);
