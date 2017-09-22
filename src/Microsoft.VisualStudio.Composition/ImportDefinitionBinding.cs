@@ -39,7 +39,7 @@ namespace Microsoft.VisualStudio.Composition
             this.ComposablePartTypeRef = composablePartType;
             this.ImportingMemberRef = importingMember;
             this.ImportingSiteTypeRef = importingSiteTypeRef;
-            this.ImportingSiteTypeWithoutCollectionRef = importingSiteTypeWithoutCollectionRef;
+            this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeWithoutCollectionRef;
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Composition
             this.ComposablePartTypeRef = composablePartType;
             this.ImportingParameterRef = importingConstructorParameter;
             this.ImportingSiteTypeRef = importingSiteTypeRef;
-            this.ImportingSiteTypeWithoutCollectionRef = importingSiteTypeWithoutCollectionRef;
+            this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeWithoutCollectionRef;
         }
 
         /// <summary>
@@ -114,9 +114,9 @@ namespace Microsoft.VisualStudio.Composition
         /// <value>Never null.</value>
         public TypeRef ImportingSiteTypeRef { get; }
 
-        public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeWithoutCollectionRef?.ResolvedType;
+        public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeRefWithoutCollection?.ResolvedType;
 
-        public TypeRef ImportingSiteTypeWithoutCollectionRef { get; }
+        public TypeRef ImportingSiteTypeRefWithoutCollection { get; }
 
         /// <summary>
         /// Gets the type of the member, with the ImportMany collection and Lazy/ExportFactory stripped off, when present.
@@ -166,7 +166,7 @@ namespace Microsoft.VisualStudio.Composition
 
         public bool IsExportFactory
         {
-            get { return this.ImportingSiteTypeWithoutCollectionRef.IsExportFactoryType(); }
+            get { return this.ImportingSiteTypeRefWithoutCollection.IsExportFactoryType(); }
         }
 
         public Type ExportFactoryType

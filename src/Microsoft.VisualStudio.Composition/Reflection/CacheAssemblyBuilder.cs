@@ -148,7 +148,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 importDefinitionBinding.ComposablePartTypeRef,
                 importingMember,
                 importDefinitionBinding.ImportingSiteTypeRef,
-                importDefinitionBinding.ImportingSiteTypeWithoutCollectionRef);
+                importDefinitionBinding.ImportingSiteTypeRefWithoutCollection);
         }
 
         private (MethodInfo, MethodRef) Wrap(ConstructorInfo constructorInfo)
