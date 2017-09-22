@@ -186,6 +186,7 @@ namespace Microsoft.VisualStudio.Composition
                 return new RuntimeImport(
                     importDefinitionBinding.ImportingMemberRef,
                     importDefinitionBinding.ImportingSiteTypeRef,
+                    importDefinitionBinding.ImportingSiteTypeRefWithoutCollection,
                     importDefinitionBinding.ImportDefinition.Cardinality,
                     runtimeExports,
                     PartCreationPolicyConstraint.IsNonSharedInstanceRequired(importDefinitionBinding.ImportDefinition),
@@ -198,6 +199,7 @@ namespace Microsoft.VisualStudio.Composition
                 return new RuntimeImport(
                     importDefinitionBinding.ImportingParameterRef,
                     importDefinitionBinding.ImportingSiteTypeRef,
+                    importDefinitionBinding.ImportingSiteTypeRefWithoutCollection,
                     importDefinitionBinding.ImportDefinition.Cardinality,
                     runtimeExports,
                     PartCreationPolicyConstraint.IsNonSharedInstanceRequired(importDefinitionBinding.ImportDefinition),
@@ -314,7 +316,6 @@ namespace Microsoft.VisualStudio.Composition
         public class RuntimeImport : IEquatable<RuntimeImport>
         {
             private bool? isLazy;
-            private Type importingSiteTypeWithoutCollection;
             private Type importingSiteElementType;
             private Func<Func<object>, object, object> lazyFactory;
             private ParameterInfo importingParameter;
@@ -322,9 +323,10 @@ namespace Microsoft.VisualStudio.Composition
             private volatile bool isMetadataTypeInitialized;
             private Type metadataType;
 
-            private RuntimeImport(TypeRef importingSiteTypeRef, ImportCardinality cardinality, IReadOnlyList<RuntimeExport> satisfyingExports, bool isNonSharedInstanceRequired, bool isExportFactory, IReadOnlyDictionary<string, object> metadata, IReadOnlyCollection<string> exportFactorySharingBoundaries)
+            private RuntimeImport(TypeRef importingSiteTypeRef, TypeRef importingSiteTypeRefWithoutCollection, ImportCardinality cardinality, IReadOnlyList<RuntimeExport> satisfyingExports, bool isNonSharedInstanceRequired, bool isExportFactory, IReadOnlyDictionary<string, object> metadata, IReadOnlyCollection<string> exportFactorySharingBoundaries)
             {
                 Requires.NotNull(importingSiteTypeRef, nameof(importingSiteTypeRef));
+                Requires.NotNull(importingSiteTypeRefWithoutCollection, nameof(importingSiteTypeRefWithoutCollection));
                 Requires.NotNull(satisfyingExports, nameof(satisfyingExports));
 
                 this.Cardinality = cardinality;
@@ -333,17 +335,18 @@ namespace Microsoft.VisualStudio.Composition
                 this.IsExportFactory = isExportFactory;
                 this.Metadata = metadata;
                 this.ImportingSiteTypeRef = importingSiteTypeRef;
+                this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeRefWithoutCollection;
                 this.ExportFactorySharingBoundaries = exportFactorySharingBoundaries;
             }
 
-            public RuntimeImport(MemberRef importingMemberRef, TypeRef importingSiteTypeRef, ImportCardinality cardinality, IReadOnlyList<RuntimeExport> satisfyingExports, bool isNonSharedInstanceRequired, bool isExportFactory, IReadOnlyDictionary<string, object> metadata, IReadOnlyCollection<string> exportFactorySharingBoundaries)
-                : this(importingSiteTypeRef, cardinality, satisfyingExports, isNonSharedInstanceRequired, isExportFactory, metadata, exportFactorySharingBoundaries)
+            public RuntimeImport(MemberRef importingMemberRef, TypeRef importingSiteTypeRef, TypeRef importingSiteTypeRefWithoutCollection, ImportCardinality cardinality, IReadOnlyList<RuntimeExport> satisfyingExports, bool isNonSharedInstanceRequired, bool isExportFactory, IReadOnlyDictionary<string, object> metadata, IReadOnlyCollection<string> exportFactorySharingBoundaries)
+                : this(importingSiteTypeRef, importingSiteTypeRefWithoutCollection, cardinality, satisfyingExports, isNonSharedInstanceRequired, isExportFactory, metadata, exportFactorySharingBoundaries)
             {
                 this.ImportingMemberRef = importingMemberRef;
             }
 
-            public RuntimeImport(ParameterRef importingParameterRef, TypeRef importingSiteTypeRef, ImportCardinality cardinality, IReadOnlyList<RuntimeExport> satisfyingExports, bool isNonSharedInstanceRequired, bool isExportFactory, IReadOnlyDictionary<string, object> metadata, IReadOnlyCollection<string> exportFactorySharingBoundaries)
-                : this(importingSiteTypeRef, cardinality, satisfyingExports, isNonSharedInstanceRequired, isExportFactory, metadata, exportFactorySharingBoundaries)
+            public RuntimeImport(ParameterRef importingParameterRef, TypeRef importingSiteTypeRef, TypeRef importingSiteTypeRefWithoutCollection, ImportCardinality cardinality, IReadOnlyList<RuntimeExport> satisfyingExports, bool isNonSharedInstanceRequired, bool isExportFactory, IReadOnlyDictionary<string, object> metadata, IReadOnlyCollection<string> exportFactorySharingBoundaries)
+                : this(importingSiteTypeRef, importingSiteTypeRefWithoutCollection, cardinality, satisfyingExports, isNonSharedInstanceRequired, isExportFactory, metadata, exportFactorySharingBoundaries)
             {
                 this.ImportingParameterRef = importingParameterRef;
             }
@@ -359,6 +362,8 @@ namespace Microsoft.VisualStudio.Composition
             public ParameterRef ImportingParameterRef { get; private set; }
 
             public TypeRef ImportingSiteTypeRef { get; private set; }
+
+            public TypeRef ImportingSiteTypeRefWithoutCollection { get; private set; }
 
             public ImportCardinality Cardinality { get; private set; }
 
@@ -417,7 +422,7 @@ namespace Microsoft.VisualStudio.Composition
                 {
                     if (!this.isLazy.HasValue)
                     {
-                        this.isLazy = this.ImportingSiteTypeWithoutCollection.IsAnyLazyType();
+                        this.isLazy = this.ImportingSiteTypeRefWithoutCollection.IsAnyLazyType();
                     }
 
                     return this.isLazy.Value;
@@ -426,20 +431,7 @@ namespace Microsoft.VisualStudio.Composition
 
             public Type ImportingSiteType => this.ImportingSiteTypeRef?.ResolvedType;
 
-            public Type ImportingSiteTypeWithoutCollection
-            {
-                get
-                {
-                    if (this.importingSiteTypeWithoutCollection == null)
-                    {
-                        this.importingSiteTypeWithoutCollection = this.Cardinality == ImportCardinality.ZeroOrMore
-                            ? PartDiscovery.GetElementTypeFromMany(this.ImportingSiteType)
-                            : this.ImportingSiteType;
-                    }
-
-                    return this.importingSiteTypeWithoutCollection;
-                }
-            }
+            public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeRefWithoutCollection?.ResolvedType;
 
             /// <summary>
             /// Gets the type of the member, with the ImportMany collection and Lazy/ExportFactory stripped off, when present.

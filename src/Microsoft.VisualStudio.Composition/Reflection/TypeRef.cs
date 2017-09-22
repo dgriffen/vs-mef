@@ -110,6 +110,8 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
         public ImmutableArray<TypeRef> GenericTypeArguments { get; private set; }
 
+        public bool IsGenericType => this.GenericTypeParameterCount > 0 || this.GenericTypeArguments.Length > 0;
+
         public bool IsGenericTypeDefinition
         {
             get { return this.GenericTypeParameterCount > 0 && this.GenericTypeArguments.Length == 0; }

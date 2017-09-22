@@ -120,6 +120,33 @@ namespace Microsoft.VisualStudio.Composition.Tests
         }
 
         /// <summary>
+        /// Verifies that we can compose a catalog of MEF parts into a configuration without loading the cataloged assemblies.
+        /// </summary>
+        //// [SkippableFact] // This test failsbecause in fact we need to do Type.IsAssignableFrom tests as part of composition.
+        public async Task ComposableAssembliesNotLoadedWhenComposingCatalog()
+        {
+            SkipOnMono();
+            var catalog = await this.CreateStableCatalogAsync(
+                typeof(ExternalExportWithLazy), typeof(YetAnotherExport));
+            var catalogCache = await this.SaveCatalogAsync(catalog);
+            var configuration = CompositionConfiguration.Create(catalog);
+            var compositionCache = await this.SaveConfigurationAsync(configuration);
+
+            // Use a sub-appdomain so we can monitor which assemblies get loaded by our composition engine.
+            var appDomain = AppDomain.CreateDomain("Composition Test sub-domain", null, AppDomain.CurrentDomain.SetupInformation);
+            try
+            {
+                var driver = (AppDomainTestDriver)appDomain.CreateInstanceAndUnwrap(typeof(AppDomainTestDriver).Assembly.FullName, typeof(AppDomainTestDriver).FullName);
+                driver.Initialize(this.cacheManager.GetType(), compositionCache, catalogCache);
+                driver.TestComposeFromCatalog(typeof(ExternalExportWithLazy).Assembly.Location, typeof(YetAnotherExport).Assembly.Location);
+            }
+            finally
+            {
+                AppDomain.Unload(appDomain);
+            }
+        }
+
+        /// <summary>
         /// Verifies that the assemblies that MEF parts belong to are only loaded when
         /// their metadata is actually retrieved.
         /// </summary>
@@ -321,6 +348,15 @@ namespace Microsoft.VisualStudio.Composition.Tests
                 AssertEx.False(GetLoadedAssemblies().Any(a => a.Location.Equals(lazyLoadedAssemblyPath, StringComparison.OrdinalIgnoreCase)));
                 Assert.NotNull(exportWithLazy.YetAnotherExport.Value);
                 AssertEx.True(GetLoadedAssemblies().Any(a => a.Location.Equals(lazyLoadedAssemblyPath, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            internal void TestComposeFromCatalog(params string[] lazyLoadedAssemblyPaths)
+            {
+                AssertEx.Empty(GetLoadedAssemblies().Select(a => a.Location).Intersect(lazyLoadedAssemblyPaths, StringComparer.OrdinalIgnoreCase));
+                var configuration = CompositionConfiguration.Create(this.catalog);
+                AssertEx.Empty(GetLoadedAssemblies().Select(a => a.Location).Intersect(lazyLoadedAssemblyPaths, StringComparer.OrdinalIgnoreCase));
+                var composition = RuntimeComposition.CreateRuntimeComposition(configuration);
+                AssertEx.Empty(GetLoadedAssemblies().Select(a => a.Location).Intersect(lazyLoadedAssemblyPaths, StringComparer.OrdinalIgnoreCase));
             }
 
             internal void TestPartThatImportsExportWithTypeMetadataViaDictionary(string lazyLoadedAssemblyPath)

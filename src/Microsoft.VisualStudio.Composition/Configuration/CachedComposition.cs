@@ -246,6 +246,18 @@ namespace Microsoft.VisualStudio.Composition
                     }
 
                     this.Write(import.ImportingSiteTypeRef);
+                    if (import.Cardinality == ImportCardinality.ZeroOrMore)
+                    {
+                        this.Write(import.ImportingSiteTypeRefWithoutCollection);
+                    }
+                    else
+                    {
+                        if (import.ImportingSiteTypeRefWithoutCollection != import.ImportingSiteTypeRef)
+                        {
+                            throw new ArgumentException($"{nameof(import.ImportingSiteTypeRefWithoutCollection)} and {nameof(import.ImportingSiteTypeRef)} must be equal when {nameof(import.Cardinality)} is not {nameof(ImportCardinality.ZeroOrMore)}.", nameof(import));
+                        }
+                    }
+
                     this.Write(import.SatisfyingExports, this.Write);
                     this.Write(import.Metadata);
                     if (import.IsExportFactory)
@@ -278,6 +290,8 @@ namespace Microsoft.VisualStudio.Composition
                     }
 
                     var importingSiteTypeRef = this.ReadTypeRef();
+                    TypeRef importingSiteTypeRefWithoutCollection =
+                        cardinality == ImportCardinality.ZeroOrMore ? this.ReadTypeRef() : importingSiteTypeRef;
                     var satisfyingExports = this.ReadList(this.reader, this.ReadRuntimeExport);
                     var metadata = this.ReadMetadata();
                     IReadOnlyList<string> exportFactorySharingBoundaries = isExportFactory
@@ -288,6 +302,7 @@ namespace Microsoft.VisualStudio.Composition
                         ? new RuntimeComposition.RuntimeImport(
                             importingParameter,
                             importingSiteTypeRef,
+                            importingSiteTypeRefWithoutCollection,
                             cardinality,
                             satisfyingExports,
                             flags.HasFlag(RuntimeImportFlags.IsNonSharedInstanceRequired),
@@ -297,6 +312,7 @@ namespace Microsoft.VisualStudio.Composition
                         : new RuntimeComposition.RuntimeImport(
                             importingMember,
                             importingSiteTypeRef,
+                            importingSiteTypeRefWithoutCollection,
                             cardinality,
                             satisfyingExports,
                             flags.HasFlag(RuntimeImportFlags.IsNonSharedInstanceRequired),

@@ -140,7 +140,7 @@ namespace Microsoft.VisualStudio.Composition
             {
                 if (!this.isLazy.HasValue)
                 {
-                    this.isLazy = this.ImportingSiteTypeWithoutCollection.IsAnyLazyType();
+                    this.isLazy = this.ImportingSiteTypeRefWithoutCollection.IsAnyLazyType();
                 }
 
                 return this.isLazy.Value;
