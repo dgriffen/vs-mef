@@ -19,6 +19,12 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         private readonly Resolver resolver;
 
         /// <summary>
+        /// The metadata token for this member if read from a persisted assembly.
+        /// We do not store metadata tokens for members in dynamic assemblies because they can change till the Type is closed.
+        /// </summary>
+        private readonly int? metadataToken;
+
+        /// <summary>
         /// Backing field for the lazily initialized <see cref="ResolvedType"/> property.
         /// </summary>
         private Type resolvedType;
@@ -45,26 +51,25 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
             this.resolver = resolver;
             this.AssemblyName = GetNormalizedAssemblyName(assemblyName);
-            this.MetadataToken = metadataToken;
+            this.metadataToken = metadataToken;
             this.FullName = fullName;
             this.IsArray = isArray;
             this.GenericTypeParameterCount = genericTypeParameterCount;
             this.GenericTypeArguments = genericTypeArguments;
         }
 
-        private TypeRef(Resolver resolver, Type type)
+        private TypeRef(Resolver resolver, Type type, AssemblyName assemblyName = null)
         {
             Requires.NotNull(resolver, nameof(resolver));
             Requires.NotNull(type, nameof(type));
 
             this.resolver = resolver;
             this.resolvedType = type;
-            this.AssemblyName = GetNormalizedAssemblyName(type.GetTypeInfo().Assembly.GetName());
+            this.AssemblyName = assemblyName ?? GetNormalizedAssemblyName(type.GetTypeInfo().Assembly.GetName());
             this.IsArray = type.IsArray;
 
             Type elementType = this.ElementType;
             Requires.Argument(!elementType.IsGenericParameter, nameof(type), "Generic parameters are not supported.");
-            this.MetadataToken = elementType.GetTypeInfo().MetadataToken;
             this.FullName = (elementType.GetTypeInfo().IsGenericType ? elementType.GetGenericTypeDefinition() : elementType).FullName;
             this.GenericTypeParameterCount = elementType.GetTypeInfo().GenericTypeParameters.Length;
             this.GenericTypeArguments = elementType.GenericTypeArguments != null && elementType.GenericTypeArguments.Length > 0
@@ -74,7 +79,26 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
         public AssemblyName AssemblyName { get; private set; }
 
-        public int MetadataToken { get; private set; }
+        public int MetadataToken
+        {
+            get
+            {
+                if (this.metadataToken.HasValue)
+                {
+                    return this.metadataToken.Value;
+                }
+
+#if DESKTOP
+                // Avoid calling TypeInfo.MetadataToken on TypeBuilders because they throw exceptions
+                if (this.ElementType is System.Reflection.Emit.TypeBuilder tb)
+                {
+                    return tb.TypeToken.Token;
+                }
+#endif
+
+                return this.ElementType.GetTypeInfo().MetadataToken;
+            }
+        }
 
         /// <summary>
         /// Gets the full name of the type represented by this instance.
@@ -169,6 +193,18 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         /// <returns>An instance of TypeRef if <paramref name="type"/> is not <c>null</c>; otherwise <c>null</c>.</returns>
         public static TypeRef Get(Type type, Resolver resolver)
         {
+            return Get(type, resolver, null);
+        }
+
+        /// <summary>
+        /// Gets a TypeRef that represents a given Type instance.
+        /// </summary>
+        /// <param name="type">The Type to represent. May be <c>null</c> to get a <c>null</c> result.</param>
+        /// <param name="resolver">The resolver to use to reconstitute <paramref name="type"/> or derivatives later.</param>
+        /// <param name="assemblyName">An optional assembly name to consider that created the Type.</param>
+        /// <returns>An instance of TypeRef if <paramref name="type"/> is not <c>null</c>; otherwise <c>null</c>.</returns>
+        internal static TypeRef Get(Type type, Resolver resolver, AssemblyName assemblyName)
+        {
             Requires.NotNull(resolver, nameof(resolver));
 
             if (type == null)
@@ -182,14 +218,14 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 WeakReference<TypeRef> weakResult;
                 if (!resolver.InstanceCache.TryGetValue(type, out weakResult))
                 {
-                    result = new TypeRef(resolver, type);
+                    result = new TypeRef(resolver, type, assemblyName);
                     resolver.InstanceCache.Add(type, new WeakReference<TypeRef>(result));
                 }
                 else
                 {
                     if (!weakResult.TryGetTarget(out result))
                     {
-                        result = new TypeRef(resolver, type);
+                        result = new TypeRef(resolver, type, assemblyName);
                         weakResult.SetTarget(result);
                     }
                 }
@@ -230,7 +266,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         {
             if (!this.hashCode.HasValue)
             {
-                this.hashCode = AssemblyNameComparer.GetHashCode(this.AssemblyName) + this.MetadataToken;
+                int hashCode = AssemblyNameComparer.GetHashCode(this.AssemblyName);
+                hashCode += this.FullName.GetHashCode();
+                this.hashCode = hashCode;
             }
 
             return this.hashCode.Value;
@@ -243,10 +281,23 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
         public bool Equals(TypeRef other)
         {
-            // If we ever stop comparing metadata tokens,
-            // we would need to compare the other properties that describe this member.
-            bool result = this.MetadataToken == other.MetadataToken
-                && AssemblyNameComparer.Equals(this.AssemblyName, other.AssemblyName)
+            if (this.resolvedType != null && other.resolvedType != null)
+            {
+                return this.resolvedType.IsEquivalentTo(other.resolvedType);
+            }
+            else if (this.metadataToken.HasValue && other.metadataToken.HasValue)
+            {
+                if (this.metadataToken.Value != other.metadataToken.Value)
+                {
+                    return false;
+                }
+            }
+            else if (this.FullName != other.FullName)
+            {
+                return false;
+            }
+
+            bool result = AssemblyNameComparer.Equals(this.AssemblyName, other.AssemblyName)
                 && this.IsArray == other.IsArray
                 && this.GenericTypeParameterCount == other.GenericTypeParameterCount
                 && this.GenericTypeArguments.EqualsByValue(other.GenericTypeArguments);
@@ -296,7 +347,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
             AssemblyName normalizedAssemblyName = assemblyName;
 #if NET45
-            if (assemblyName.CodeBase.IndexOf('~') >= 0)
+            if (assemblyName.CodeBase != null && assemblyName.CodeBase.IndexOf('~') >= 0)
             {
                 // Using ToString() rather than AbsoluteUri here to match the CLR's AssemblyName.CodeBase convention of paths without %20 space characters.
                 string normalizedCodeBase = new Uri(Path.GetFullPath(new Uri(assemblyName.CodeBase).LocalPath)).ToString();
