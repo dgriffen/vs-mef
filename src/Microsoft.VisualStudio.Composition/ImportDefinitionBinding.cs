@@ -142,9 +142,9 @@ namespace Microsoft.VisualStudio.Composition
         /// <value>Never null.</value>
         public TypeRef ImportingSiteTypeRef { get; }
 
-        public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeWithoutCollectionRef?.ResolvedType;
-
         public TypeRef ImportingSiteTypeWithoutCollectionRef { get; }
+
+        public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeWithoutCollectionRef?.ResolvedType;
 
         /// <summary>
         /// Gets the type of the member, with the ImportMany collection and Lazy/ExportFactory stripped off, when present.
