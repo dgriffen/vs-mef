@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
                         // so we don't end up locking the assembly file on disk, leaving behind many turd files
                         // from running tests.
                         assemblyCachedCatalog = new CachedCatalog().Stabilize(catalogWithSupport);
-                        AddConfiguration(catalogWithSupport, "assembly cache");
+                        AddConfiguration(assemblyCachedCatalog, "assembly cache");
 #endif
                     }
 
