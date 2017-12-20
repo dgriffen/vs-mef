@@ -5,15 +5,23 @@ namespace Microsoft.VisualStudio.Composition.Reflection
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Diagnostics;
     using System.Linq;
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading.Tasks;
 
+    [DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
     [StructLayout(LayoutKind.Auto)] // Workaround multi-core JIT deadlock (DevDiv.1043199)
     public struct ConstructorRef : IEquatable<ConstructorRef>
     {
+        /// <summary>
+        /// Gets the string to display in the debugger watch window for this value.
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        internal string DebuggerDisplay => this.IsEmpty ? "(empty)" : $"{this.DeclaringType.FullName}.{ConstructorInfo.ConstructorName}({string.Join(", ", this.ParameterTypes.Select(p => p.FullName))})";
+
         /// <summary>
         /// The metadata token for this member if read from a persisted assembly.
         /// We do not store metadata tokens for members in dynamic assemblies because they can change till the Type is closed.
@@ -24,7 +32,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
         /// The <see cref="MemberInfo"/> that this value was instantiated with,
         /// or cached later when a metadata token was resolved.
         /// </summary>
-        internal ConstructorInfo constructorInfo;
+        private ConstructorInfo constructorInfo;
 
         public ConstructorRef(TypeRef declaringType, int metadataToken, ImmutableArray<TypeRef> parameterTypes)
             : this()
@@ -40,7 +48,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             this.ParameterTypes = parameterTypes;
         }
 
-#if NET45
+#if DESKTOP
         [Obsolete]
         public ConstructorRef(TypeRef declaringType, int metadataToken)
             : this(
@@ -71,6 +79,8 @@ namespace Microsoft.VisualStudio.Composition.Reflection
 
         internal Resolver Resolver => this.DeclaringType?.Resolver;
 
+        internal ConstructorInfo ConstructorInfoNoResolve => this.constructorInfo;
+
         public static ConstructorRef Get(ConstructorInfo constructor, Resolver resolver)
         {
             return constructor != null
@@ -98,7 +108,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 }
             }
 
-            if (this.metadataToken.HasValue && other.metadataToken.HasValue)
+            if (this.metadataToken.HasValue && other.metadataToken.HasValue && this.DeclaringType.AssemblyId.Equals(other.DeclaringType.AssemblyId))
             {
                 if (this.metadataToken.Value != other.metadataToken.Value)
                 {

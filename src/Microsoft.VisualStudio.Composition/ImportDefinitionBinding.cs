@@ -15,9 +15,22 @@ namespace Microsoft.VisualStudio.Composition
     {
         private bool? isLazy;
 
-        private Type importingSiteTypeWithoutCollection;
-
         private Type importingSiteElementType;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ImportDefinitionBinding"/> class
+        /// to represent an importing member.
+        /// </summary>
+        [Obsolete]
+        public ImportDefinitionBinding(ImportDefinition importDefinition, TypeRef composablePartType, MemberRef importingMember)
+            : this(
+                  importDefinition,
+                  composablePartType,
+                  importingMember,
+                  TypeRef.Get(ReflectionHelpers.GetMemberType(importingMember.MemberInfo), importingMember.Resolver),
+                  TypeRef.Get(importDefinition.Cardinality == ImportCardinality.ZeroOrMore ? PartDiscovery.GetElementTypeFromMany(ReflectionHelpers.GetMemberType(importingMember.MemberInfo)) : ReflectionHelpers.GetMemberType(importingMember.MemberInfo), importingMember.Resolver))
+        {
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImportDefinitionBinding"/> class
@@ -28,18 +41,33 @@ namespace Microsoft.VisualStudio.Composition
             TypeRef composablePartType,
             MemberRef importingMember,
             TypeRef importingSiteTypeRef,
-            TypeRef importingSiteTypeWithoutCollectionRef)
+            TypeRef importingSiteTypeRefWithoutCollection)
         {
             Requires.NotNull(importDefinition, nameof(importDefinition));
             Requires.NotNull(composablePartType, nameof(composablePartType));
             Requires.NotNull(importingSiteTypeRef, nameof(importingSiteTypeRef));
-            Requires.NotNull(importingSiteTypeWithoutCollectionRef, nameof(importingSiteTypeWithoutCollectionRef));
+            Requires.NotNull(importingSiteTypeRefWithoutCollection, nameof(importingSiteTypeRefWithoutCollection));
 
             this.ImportDefinition = importDefinition;
             this.ComposablePartTypeRef = composablePartType;
             this.ImportingMemberRef = importingMember;
             this.ImportingSiteTypeRef = importingSiteTypeRef;
-            this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeWithoutCollectionRef;
+            this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeRefWithoutCollection;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ImportDefinitionBinding"/> class
+        /// to represent a parameter in an importing constructor.
+        /// </summary>
+        [Obsolete]
+        public ImportDefinitionBinding(ImportDefinition importDefinition, TypeRef composablePartType, ParameterRef importingConstructorParameter)
+            : this(
+                  importDefinition,
+                  composablePartType,
+                  importingConstructorParameter,
+                  TypeRef.Get(importingConstructorParameter.Resolve().ParameterType, importingConstructorParameter.Resolver),
+                  TypeRef.Get(importDefinition.Cardinality == ImportCardinality.ZeroOrMore ? PartDiscovery.GetElementTypeFromMany(importingConstructorParameter.Resolve().ParameterType) : importingConstructorParameter.Resolve().ParameterType, importingConstructorParameter.Resolver))
+        {
         }
 
         /// <summary>
@@ -75,7 +103,7 @@ namespace Microsoft.VisualStudio.Composition
         /// </summary>
         public MemberInfo ImportingMember
         {
-            get { return this.ImportingMemberRef.Resolve(); }
+            get { return this.ImportingMemberRef.MemberInfo; }
         }
 
         /// <summary>

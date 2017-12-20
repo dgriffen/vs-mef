@@ -52,7 +52,7 @@ namespace Microsoft.VisualStudio.Composition
                 }
                 catch (FileNotFoundException)
                 {
-#if NET45
+#if DESKTOP
                     // Dynamic assemblies may already have been loaded in memory.
                     assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => ByValueEquality.AssemblyName.Equals(a.GetName(), assemblyName));
 #endif
@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Composition
             Requires.NotNullOrEmpty(assemblyFullName, nameof(assemblyFullName));
 
             var assemblyName = new AssemblyName(assemblyFullName);
-#if NET45
+#if DESKTOP
             if (!string.IsNullOrEmpty(codeBasePath))
             {
                 assemblyName.CodeBase = codeBasePath;

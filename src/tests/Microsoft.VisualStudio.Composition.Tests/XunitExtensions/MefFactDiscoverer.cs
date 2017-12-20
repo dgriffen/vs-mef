@@ -138,7 +138,12 @@ namespace Microsoft.VisualStudio.Composition.Tests
                     {
                         foreach (var namedConfiguration in v3DiscoveryTest.ResultingConfigurations)
                         {
-                            string name = $"V3 engine ({namedConfiguration.Description})";
+                            string name = "V3 engine";
+                            if (!string.IsNullOrEmpty(namedConfiguration.Description))
+                            {
+                                name += $" ({namedConfiguration.Description})";
+                            }
+
                             var runner = new Mef3TestCaseRunner(this, name, null, constructorArguments, messageBus, aggregator, cancellationTokenSource, namedConfiguration.Configuration, this.compositionVersions);
                             runSummary.Aggregate(await runner.RunAsync());
                         }

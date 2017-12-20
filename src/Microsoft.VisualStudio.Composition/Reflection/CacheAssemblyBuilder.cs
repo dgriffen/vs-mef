@@ -1,6 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-#if NET45
+#if DESKTOP
 
 // StyleCop.Analyzers 1.0 doesn't do well with C# 7 () tuple literals.
 #pragma warning disable SA1008 // Opening parenthesis must be spaced correctly

@@ -14,6 +14,7 @@ namespace Microsoft.VisualStudio.Composition.Reflection
     public static class ResolverExtensions
     {
         private const BindingFlags AllInstanceMembers = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private const BindingFlags AllMembers = AllInstanceMembers | BindingFlags.Static;
 
         public static Type Resolve(this TypeRef typeRef)
         {
@@ -27,38 +28,47 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 return null;
             }
 
-            var manifest = constructorRef.Resolver.GetManifest(constructorRef.DeclaringType.AssemblyName);
 #if RuntimeHandles
-            return (ConstructorInfo)manifest.ResolveMethod(constructorRef.MetadataToken);
-#else
-            return FindMethodByParameters(
-                Resolve(constructorRef.DeclaringType).GetConstructors(AllInstanceMembers),
-                ConstructorInfo.ConstructorName,
-                constructorRef.ParameterTypes);
+            if (TryUseFastReflection(constructorRef.DeclaringType, out Module manifest))
+            {
+                return (ConstructorInfo)manifest.ResolveMethod(constructorRef.MetadataToken);
+            }
+            else
 #endif
+            {
+                return FindMethodByParameters(
+                    Resolve(constructorRef.DeclaringType).GetConstructors(AllMembers),
+                    ConstructorInfo.ConstructorName,
+                    constructorRef.ParameterTypes);
+            }
         }
 
-        public static MethodBase Resolve(this MethodRef methodRef)
+        [Obsolete("Use Resolve2 instead.", error: true)]
+        public static MethodInfo Resolve(this MethodRef methodRef) => (MethodInfo)Resolve2(methodRef);
+
+        public static MethodBase Resolve2(this MethodRef methodRef)
         {
             if (methodRef.IsEmpty)
             {
                 return null;
             }
 
+            MethodBase method = null;
 #if RuntimeHandles
-            var manifest = methodRef.Resolver.GetManifest(methodRef.DeclaringType.AssemblyName);
-            var method = manifest.ResolveMethod(methodRef.MetadataToken);
-#else
-            if (methodRef.Name == ConstructorInfo.ConstructorName)
+            if (TryUseFastReflection(methodRef.DeclaringType, out Module manifest))
             {
-                return Resolve(new ConstructorRef(methodRef.DeclaringType, methodRef.MetadataToken, methodRef.ParameterTypes));
+                method = manifest.ResolveMethod(methodRef.MetadataToken);
+            }
+            else
+#endif
+            {
+                TypeInfo declaringType = methodRef.DeclaringType.ResolvedType.GetTypeInfo();
+                var candidates = methodRef.Name == ConstructorInfo.ConstructorName
+                    ? (MethodBase[])declaringType.GetConstructors(AllInstanceMembers)
+                    : declaringType.GetMethods(AllMembers);
+                method = FindMethodByParameters(candidates, methodRef.Name, methodRef.ParameterTypes);
             }
 
-            var method = FindMethodByParameters(
-                Resolve(methodRef.DeclaringType).GetTypeInfo().GetMethods(AllInstanceMembers),
-                methodRef.Name,
-                methodRef.ParameterTypes);
-#endif
             if (methodRef.GenericMethodArguments.Length > 0)
             {
                 var constructedMethod = ((MethodInfo)method).MakeGenericMethod(methodRef.GenericMethodArguments.Select(Resolve).ToArray());
@@ -75,20 +85,15 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 return null;
             }
 
-            Type type = propertyRef.DeclaringType.Resolve();
-#if RuntimeHandles
-            return type.GetRuntimeProperties().First(p => p.MetadataToken == propertyRef.MetadataToken);
-#else
-            foreach (var property in type.GetProperties(AllInstanceMembers))
+            Type type = propertyRef.DeclaringType.ResolvedType;
+            if (TryUseFastReflection(propertyRef.DeclaringType, out Module manifest))
             {
-                if (property.Name == propertyRef.Name)
-                {
-                    return property;
-                }
+                return type.GetRuntimeProperties().First(p => p.MetadataToken == propertyRef.MetadataToken);
             }
-
-            return null;
-#endif
+            else
+            {
+                return type.GetProperty(propertyRef.Name, AllMembers);
+            }
         }
 
         public static MethodInfo ResolveGetter(this PropertyRef propertyRef)
@@ -96,11 +101,15 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             if (propertyRef.GetMethodMetadataToken.HasValue)
             {
 #if RuntimeHandles
-                Module manifest = propertyRef.Resolver.GetManifest(propertyRef.DeclaringType.AssemblyName);
-                return (MethodInfo)manifest.ResolveMethod(propertyRef.GetMethodMetadataToken.Value);
-#else
-                return Resolve(propertyRef).GetMethod;
+                if (TryUseFastReflection(propertyRef.DeclaringType, out Module manifest))
+                {
+                    return (MethodInfo)manifest.ResolveMethod(propertyRef.GetMethodMetadataToken.Value);
+                }
+                else
 #endif
+                {
+                    return propertyRef.PropertyInfo.GetMethod;
+                }
             }
 
             return null;
@@ -111,11 +120,15 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             if (propertyRef.SetMethodMetadataToken.HasValue)
             {
 #if RuntimeHandles
-                Module manifest = propertyRef.Resolver.GetManifest(propertyRef.DeclaringType.AssemblyName);
-                return (MethodInfo)manifest.ResolveMethod(propertyRef.SetMethodMetadataToken.Value);
-#else
-                return Resolve(propertyRef).SetMethod;
+                if (TryUseFastReflection(propertyRef.DeclaringType, out Module manifest))
+                {
+                    return (MethodInfo)manifest.ResolveMethod(propertyRef.SetMethodMetadataToken.Value);
+                }
+                else
 #endif
+                {
+                    return propertyRef.PropertyInfo.SetMethod;
+                }
             }
 
             return null;
@@ -129,11 +142,15 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             }
 
 #if RuntimeHandles
-            var manifest = fieldRef.Resolver.GetManifest(fieldRef.AssemblyName);
-            return manifest.ResolveField(fieldRef.MetadataToken);
-#else
-            return Resolve(fieldRef.DeclaringType).GetField(fieldRef.Name, AllInstanceMembers);
+            if (TryUseFastReflection(fieldRef.DeclaringType, out Module manifest))
+            {
+                return manifest.ResolveField(fieldRef.MetadataToken);
+            }
+            else
 #endif
+            {
+                return Resolve(fieldRef.DeclaringType).GetField(fieldRef.Name, AllMembers);
+            }
         }
 
         public static ParameterInfo Resolve(this ParameterRef parameterRef)
@@ -143,12 +160,18 @@ namespace Microsoft.VisualStudio.Composition.Reflection
                 return null;
             }
 
+            MethodBase method;
 #if RuntimeHandles
-            Module manifest = parameterRef.Resolver.GetManifest(parameterRef.AssemblyName);
-            MethodBase method = manifest.ResolveMethod(parameterRef.Constructor.IsEmpty ? parameterRef.Method.MetadataToken : parameterRef.Constructor.MetadataToken);
-#else
-            MethodBase method = (MethodBase)Resolve(parameterRef.Constructor) ?? Resolve(parameterRef.Method);
+            if (TryUseFastReflection(parameterRef.DeclaringType, out Module manifest))
+            {
+                method = manifest.ResolveMethod(parameterRef.Constructor.IsEmpty ? parameterRef.Method.MetadataToken : parameterRef.Constructor.MetadataToken);
+            }
+            else
 #endif
+            {
+                method = parameterRef.Constructor.ConstructorInfo ?? parameterRef.Method.MethodBase;
+            }
+
             return method.GetParameters()[parameterRef.ParameterIndex];
         }
 
@@ -187,32 +210,9 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             throw new NotSupportedException();
         }
 
+        [Obsolete("Use " + nameof(MemberRef) + " instead.", error: true)]
         public static MemberInfo Resolve(this MemberDesc memberDesc)
         {
-            var fieldDesc = memberDesc as FieldDesc;
-            if (fieldDesc != null)
-            {
-                return fieldDesc.Field.Resolve();
-            }
-
-            var propertyDesc = memberDesc as PropertyDesc;
-            if (propertyDesc != null)
-            {
-                return propertyDesc.Property.Resolve();
-            }
-
-            var methodDesc = memberDesc as MethodDesc;
-            if (methodDesc != null)
-            {
-                return methodDesc.Method.Resolve();
-            }
-
-            var constructorDesc = memberDesc as ConstructorDesc;
-            if (constructorDesc != null)
-            {
-                return constructorDesc.Constructor.Resolve();
-            }
-
             throw new NotSupportedException();
         }
 
@@ -326,6 +326,23 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             return resolver.AssemblyLoader.LoadAssembly(assemblyName).ManifestModule;
         }
 
+        /// <summary>
+        /// Tests whether we can safely use fast reflection on the assembly that defines the given type.
+        /// </summary>
+        /// <param name="typeRef">The reference to a type that needs to be reflected over.</param>
+        /// <param name="manifest">Receives the manifest of the assembly that defines the type. May be <c>null</c> when fast reflection must not be used.</param>
+        /// <returns><c>true</c> if it is safe to use fast reflection; <c>false</c> otherwise.</returns>
+        internal static bool TryUseFastReflection(TypeRef typeRef, out Module manifest)
+        {
+#if RuntimeHandles
+            manifest = typeRef.Resolver.GetManifest(typeRef.AssemblyName);
+            return IsStrongAssemblyIdentityMatch(typeRef, manifest);
+#else
+            manifest = null;
+            return false;
+#endif
+        }
+
         private static T FindMethodByParameters<T>(IEnumerable<T> members, string memberName, ImmutableArray<TypeRef> parameterTypes)
             where T : MethodBase
         {
@@ -356,6 +373,21 @@ namespace Microsoft.VisualStudio.Composition.Reflection
             }
 
             return default(T);
+        }
+
+        /// <summary>
+        /// Determines whether the metadata tokens stored in a <see cref="TypeRef"/>
+        /// can be considered reliable considering the currently loaded assembly manifest.
+        /// </summary>
+        /// <param name="typeRef">The <see cref="TypeRef"/> that may have been cached, possibly against a different build of the assembly.</param>
+        /// <param name="manifest">The manifest from the assembly that defines the referenced type.</param>
+        /// <returns><c>true</c> if the currently loaded assembly is the same build as the one that was cached.</returns>
+        private static bool IsStrongAssemblyIdentityMatch(TypeRef typeRef, Module manifest)
+        {
+            Requires.NotNull(typeRef, nameof(typeRef));
+            Requires.NotNull(manifest, nameof(manifest));
+
+            return typeRef.Resolver.GetStrongAssemblyIdentity(manifest.Assembly, typeRef.AssemblyName).Equals(typeRef.AssemblyId);
         }
     }
 }

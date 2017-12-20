@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Composition
 
         protected static readonly Encoding TextEncoding = Encoding.UTF8;
 
-#if NET45
+#if DESKTOP
 
         /// <summary>
         /// Generates an intermediate assembly for the given <see cref="ComposableCatalog" /> to allow
@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Composition
             string fileNameWithoutExtension = assemblyPath != null ? Path.GetFileNameWithoutExtension(assemblyPath) : DefaultCacheAssemblyName;
             Version version = GenerateCacheAssemblyVersion();
             var assemblyName = new AssemblyName($"{fileNameWithoutExtension ?? DefaultCacheAssemblyName}, Version={version}, Culture=neutral, PublicKeyToken=null");
-#if NET45
+#if DESKTOP
             if (assemblyPath != null)
             {
                 assemblyName.CodeBase = new Uri(assemblyPath).AbsoluteUri;

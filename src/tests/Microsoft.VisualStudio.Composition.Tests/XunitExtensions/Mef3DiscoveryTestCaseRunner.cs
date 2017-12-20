@@ -104,6 +104,19 @@ namespace Microsoft.VisualStudio.Composition.Tests
 
                     // For each distinct catalog, create one configuration and verify it meets expectations.
                     var configurations = new List<(CompositionConfiguration, string)>(2 * uniqueCatalogs.Length);
+                    void AddConfiguration(ComposableCatalog cat, string configurationName)
+                    {
+                        var configuration = CompositionConfiguration.Create(cat);
+
+                        if (!this.compositionVersions.HasFlag(CompositionEngines.V3AllowConfigurationWithErrors))
+                        {
+                            Assert.Equal(this.expectInvalidConfiguration, !configuration.CompositionErrors.IsEmpty || !cat.DiscoveredParts.DiscoveryErrors.IsEmpty);
+                        }
+
+                        // Save the configuration in a property so that the engine test that follows can reuse the work we've done.
+                        configurations.Add((configuration, configurationName));
+                    }
+
                     foreach (var uniqueCatalog in uniqueCatalogs)
                     {
                         var catalogWithSupport = uniqueCatalog
@@ -115,15 +128,8 @@ namespace Microsoft.VisualStudio.Composition.Tests
                         // Round-trip the catalog through serialization to verify that as well.
                         await RoundtripCatalogSerializationAsync(catalogWithSupport, output);
 
-                        var configuration = CompositionConfiguration.Create(catalogWithSupport);
-
-                        if (!this.compositionVersions.HasFlag(CompositionEngines.V3AllowConfigurationWithErrors))
-                        {
-                            Assert.Equal(this.expectInvalidConfiguration, !configuration.CompositionErrors.IsEmpty || !catalogWithSupport.DiscoveredParts.DiscoveryErrors.IsEmpty);
-                        }
-
-                        // Save the configuration in a property so that the engine test that follows can reuse the work we've done.
-                        configurations.Add((configuration, "no cache"));
+                        AddConfiguration(catalogWithSupport, "no cache");
+                        AddConfiguration(CatalogScrambler.SimulateRecompiledAssembly(catalogWithSupport), "Slow reflection");
 
 #if DESKTOP
                         // Test assembly cache generation that includes saving to disk since that adds
@@ -136,8 +142,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
                         // so we don't end up locking the assembly file on disk, leaving behind many turd files
                         // from running tests.
                         assemblyCachedCatalog = new CachedCatalog().Stabilize(catalogWithSupport);
-                        configuration = CompositionConfiguration.Create(catalogWithSupport);
-                        configurations.Add((configuration, "cached"));
+                        AddConfiguration(catalogWithSupport, "assembly cache");
 #endif
                     }
 

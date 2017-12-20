@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
             var catalog = TestUtilities.EmptyCatalog.AddParts(new[] { TestUtilities.V2Discovery.CreatePart(typeof(SomeExport)) });
             if (stabilizeCatalog)
             {
-#if NET452
+#if DESKTOP
                 var cachedCatalog = new CachedCatalog();
                 catalog = cachedCatalog.Stabilize(catalog);
                 GC.Collect(); // Shake out any collectible dynamic assembly bugs
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
             Assert.NotNull(export);
         }
 
-#if NET452
+#if DESKTOP
         [Fact(Skip = "Hack. Delete this.")]
         public async Task StabilizeVSCatalog()
         {
