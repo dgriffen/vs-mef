@@ -248,13 +248,13 @@ namespace Microsoft.VisualStudio.Composition
                     this.Write(import.ImportingSiteTypeRef);
                     if (import.Cardinality == ImportCardinality.ZeroOrMore)
                     {
-                        this.Write(import.ImportingSiteTypeRefWithoutCollection);
+                        this.Write(import.ImportingSiteTypeWithoutCollectionRef);
                     }
                     else
                     {
-                        if (import.ImportingSiteTypeRefWithoutCollection != import.ImportingSiteTypeRef)
+                        if (import.ImportingSiteTypeWithoutCollectionRef != import.ImportingSiteTypeRef)
                         {
-                            throw new ArgumentException($"{nameof(import.ImportingSiteTypeRefWithoutCollection)} and {nameof(import.ImportingSiteTypeRef)} must be equal when {nameof(import.Cardinality)} is not {nameof(ImportCardinality.ZeroOrMore)}.", nameof(import));
+                            throw new ArgumentException($"{nameof(import.ImportingSiteTypeWithoutCollectionRef)} and {nameof(import.ImportingSiteTypeRef)} must be equal when {nameof(import.Cardinality)} is not {nameof(ImportCardinality.ZeroOrMore)}.", nameof(import));
                         }
                     }
 
@@ -290,7 +290,7 @@ namespace Microsoft.VisualStudio.Composition
                     }
 
                     var importingSiteTypeRef = this.ReadTypeRef();
-                    TypeRef importingSiteTypeRefWithoutCollection =
+                    TypeRef importingSiteTypeWithoutCollectionRef =
                         cardinality == ImportCardinality.ZeroOrMore ? this.ReadTypeRef() : importingSiteTypeRef;
                     var satisfyingExports = this.ReadList(this.reader, this.ReadRuntimeExport);
                     var metadata = this.ReadMetadata();
@@ -302,7 +302,7 @@ namespace Microsoft.VisualStudio.Composition
                         ? new RuntimeComposition.RuntimeImport(
                             importingParameter,
                             importingSiteTypeRef,
-                            importingSiteTypeRefWithoutCollection,
+                            importingSiteTypeWithoutCollectionRef,
                             cardinality,
                             satisfyingExports,
                             flags.HasFlag(RuntimeImportFlags.IsNonSharedInstanceRequired),
@@ -312,7 +312,7 @@ namespace Microsoft.VisualStudio.Composition
                         : new RuntimeComposition.RuntimeImport(
                             importingMember,
                             importingSiteTypeRef,
-                            importingSiteTypeRefWithoutCollection,
+                            importingSiteTypeWithoutCollectionRef,
                             cardinality,
                             satisfyingExports,
                             flags.HasFlag(RuntimeImportFlags.IsNonSharedInstanceRequired),

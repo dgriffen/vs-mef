@@ -336,7 +336,7 @@ namespace Microsoft.VisualStudio.Composition
                     this.Write(importDefinitionBinding.ImportDefinition);
                     this.Write(importDefinitionBinding.ComposablePartTypeRef);
                     this.Write(importDefinitionBinding.ImportingSiteTypeRef);
-                    this.Write(importDefinitionBinding.ImportingSiteTypeRefWithoutCollection);
+                    this.Write(importDefinitionBinding.ImportingSiteTypeWithoutCollectionRef);
 
                     if (importDefinitionBinding.ImportingMemberRef.IsEmpty)
                     {

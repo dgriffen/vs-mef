@@ -148,7 +148,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
                     this.Scramble(importDefinitionBinding.ComposablePartTypeRef),
                     this.Scramble(importDefinitionBinding.ImportingParameterRef),
                     this.Scramble(importDefinitionBinding.ImportingSiteTypeRef),
-                    this.Scramble(importDefinitionBinding.ImportingSiteTypeRefWithoutCollection));
+                    this.Scramble(importDefinitionBinding.ImportingSiteTypeWithoutCollectionRef));
             }
             else
             {
@@ -157,7 +157,7 @@ namespace Microsoft.VisualStudio.Composition.Tests
                     this.Scramble(importDefinitionBinding.ComposablePartTypeRef),
                     this.Scramble(importDefinitionBinding.ImportingMemberRef),
                     this.Scramble(importDefinitionBinding.ImportingSiteTypeRef),
-                    this.Scramble(importDefinitionBinding.ImportingSiteTypeRefWithoutCollection));
+                    this.Scramble(importDefinitionBinding.ImportingSiteTypeWithoutCollectionRef));
             }
         }
 

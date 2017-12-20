@@ -41,18 +41,18 @@ namespace Microsoft.VisualStudio.Composition
             TypeRef composablePartType,
             MemberRef importingMember,
             TypeRef importingSiteTypeRef,
-            TypeRef importingSiteTypeRefWithoutCollection)
+            TypeRef importingSiteTypeWithoutCollectionRef)
         {
             Requires.NotNull(importDefinition, nameof(importDefinition));
             Requires.NotNull(composablePartType, nameof(composablePartType));
             Requires.NotNull(importingSiteTypeRef, nameof(importingSiteTypeRef));
-            Requires.NotNull(importingSiteTypeRefWithoutCollection, nameof(importingSiteTypeRefWithoutCollection));
+            Requires.NotNull(importingSiteTypeWithoutCollectionRef, nameof(importingSiteTypeWithoutCollectionRef));
 
             this.ImportDefinition = importDefinition;
             this.ComposablePartTypeRef = composablePartType;
             this.ImportingMemberRef = importingMember;
             this.ImportingSiteTypeRef = importingSiteTypeRef;
-            this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeRefWithoutCollection;
+            this.ImportingSiteTypeWithoutCollectionRef = importingSiteTypeWithoutCollectionRef;
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace Microsoft.VisualStudio.Composition
             this.ComposablePartTypeRef = composablePartType;
             this.ImportingParameterRef = importingConstructorParameter;
             this.ImportingSiteTypeRef = importingSiteTypeRef;
-            this.ImportingSiteTypeRefWithoutCollection = importingSiteTypeWithoutCollectionRef;
+            this.ImportingSiteTypeWithoutCollectionRef = importingSiteTypeWithoutCollectionRef;
         }
 
         /// <summary>
@@ -142,9 +142,9 @@ namespace Microsoft.VisualStudio.Composition
         /// <value>Never null.</value>
         public TypeRef ImportingSiteTypeRef { get; }
 
-        public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeRefWithoutCollection?.ResolvedType;
+        public Type ImportingSiteTypeWithoutCollection => this.ImportingSiteTypeWithoutCollectionRef?.ResolvedType;
 
-        public TypeRef ImportingSiteTypeRefWithoutCollection { get; }
+        public TypeRef ImportingSiteTypeWithoutCollectionRef { get; }
 
         /// <summary>
         /// Gets the type of the member, with the ImportMany collection and Lazy/ExportFactory stripped off, when present.
@@ -168,7 +168,7 @@ namespace Microsoft.VisualStudio.Composition
             {
                 if (!this.isLazy.HasValue)
                 {
-                    this.isLazy = this.ImportingSiteTypeRefWithoutCollection.IsAnyLazyType();
+                    this.isLazy = this.ImportingSiteTypeWithoutCollectionRef.IsAnyLazyType();
                 }
 
                 return this.isLazy.Value;
@@ -194,7 +194,7 @@ namespace Microsoft.VisualStudio.Composition
 
         public bool IsExportFactory
         {
-            get { return this.ImportingSiteTypeRefWithoutCollection.IsExportFactoryType(); }
+            get { return this.ImportingSiteTypeWithoutCollectionRef.IsExportFactoryType(); }
         }
 
         public Type ExportFactoryType
