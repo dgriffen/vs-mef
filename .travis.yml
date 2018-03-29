@@ -10,6 +10,6 @@ install:
 - dotnet restore src/Microsoft.VisualStudio.Composition.sln
 
 script:
-- dotnet build src/Microsoft.VisualStudio.Composition.sln
+- dotnet build src/Microsoft.VisualStudio.Composition/Microsoft.VisualStudio.Composition.csproj
 - dotnet test -f netcoreapp1.0 --no-build --no-restore src/tests/Microsoft.VisualStudio.Composition.Tests/
 - dotnet test -f netcoreapp2.0 --no-build --no-restore src/tests/Microsoft.VisualStudio.Composition.Tests/
