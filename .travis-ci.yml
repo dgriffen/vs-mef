@@ -1,0 +1,15 @@
+os:
+  - linux
+  - osx
+
+langauge: csharp
+mono: none
+dotnet: 2.0.0
+
+install:
+- dotnet restore src/Microsoft.VisualStudio.Composition.sln
+
+script:
+- dotnet build src/Microsoft.VisualStudio.Composition.sln
+- dotnet test -f netcoreapp1.0 --no-build --no-restore src/tests/Microsoft.VisualStudio.Composition.Tests/
+- dotnet test -f netcoreapp2.0 --no-build --no-restore src/tests/Microsoft.VisualStudio.Composition.Tests/
