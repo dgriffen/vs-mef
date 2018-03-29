@@ -1,12 +1,19 @@
 language: csharp
-mono: none
-dotnet:
-  - 1.1.5
-  - 2.0.0
 
-os:
-  - linux
-  - osx
+matrix:
+  include:
+    - os: linux
+      dotnet: 1.0.0
+      mono: none
+    - os: linux
+      dotnet: 2.0.0
+      mono: none
+    - os: osx
+      dotnet: 1.0.0
+      mono: none
+    - os: osx
+      dotnet: 2.0.0
+      mono: none
 
 git:
   depth: false
