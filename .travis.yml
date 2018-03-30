@@ -10,7 +10,7 @@ git:
   depth: false
 
 install:
-- nuget install xunit.runners -Version 2.2.0 -OutputDirectory testrunner
+- nuget install xunit.runner.console -Version 2.2.0 -OutputDirectory testrunner
 - msbuild src/Microsoft.VisualStudio.Composition.sln /nologo /m /v:quiet /t:restore
 
 script:
