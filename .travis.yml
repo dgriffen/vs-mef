@@ -1,11 +1,6 @@
 language: csharp
 mono: 5.0.0
 dotnet: 2.1.4
-branches:
-  only:
-  - master
-  - /^v\d+(?:\.\d+)?$/
-  - /[\b_]validate\b/
 
 os:
   - linux
